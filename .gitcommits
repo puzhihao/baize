@@ -1,0 +1,42 @@
+2026-04-02 16:09:25 refactor: 全面重构 baize 项目——修复 6 处后端 Bug、提取 auth/Claims 分层、整理 AI 共享代码、新增 YAML 配置文件支持（优先级高于环境变量）、前端 Analysis 接口结构化类型化并消除 alert()
+2026-04-02 17:36:01 feat: 主页改版为 Apple 风格——深色 Hero + 毛玻璃导航 + 滚动淡入动画 + 苹果灰功能区 + 黑白定价卡片
+2026-04-02 18:54:42 feat: 登录/注册页改版为 Apple ID 风格——浮动标签输入框、圆角黑色提交按钮、App 图标、苹果灰背景
+2026-04-02 19:02:47 feat: redesign Auth page with left-right split layout and Apple-style colors
+2026-04-02 19:03:21 feat: 登录/注册页改为左右全屏分栏——左侧深黑品牌区+紫色光晕+评分环装饰，右侧纯白表单+Tab切换，Apple 颜色体系
+2026-04-03 14:50:17 refactor: migrate object storage from MinIO SDK to generic S3 protocol (aws-sdk-go-v2)
+2026-04-03 14:51:43 refactor: 对象存储从 minio-go 迁移至 aws-sdk-go-v2 通用 S3 协议，配置字段重命名为 S3*，支持 MinIO/阿里云 OSS/AWS S3 三种存储后端
+2026-04-03 15:12:56 fix: use UNSIGNED-PAYLOAD signing for S3 PutObject to fix OSS aws-chunked encoding rejection
+2026-04-03 15:18:25 fix: strip Transfer-Encoding aws-chunked header to fix OSS PutObject 400
+2026-04-03 15:33:15 refactor: replace S3-compat workarounds with native OSS SDK via storageClient interface
+2026-04-03 15:42:22 fix: convert existing tables to utf8mb4 on migration to fix Chinese string insert error
+2026-04-03 15:51:33 feat: add resume delete (storage+DB cleanup) and full-screen dashboard layout
+2026-04-07 16:35:43 feat: add CRUD UI to admin user management page (create/edit modal + inline delete confirm)
+2026-04-07 16:44:34 feat: add user disable/enable feature with status column and login block
+2026-04-07 16:48:44 feat: add model call count analysis section to admin dashboard
+2026-04-07 17:21:16 feat: replace model usage progress bars with 30-day per-model call count line chart
+2026-04-07 17:48:52 feat: add full CRUD to admin resume and analysis management pages
+2026-04-07 18:04:51 feat: add admin-configurable analysis prompt stored in DB, with placeholder substitution
+2026-04-07 18:12:55 fix: strip <think>...</think> blocks from AI response before JSON extraction
+2026-04-11 15:58:35 style: adjust auth page left/right panel ratio from 55/45 to 40/60
+2026-04-11 16:26:55 feat: 登录页标题改为「登录，即刻智能优化您的简历」，Tab 改为单「登录」卡片式样式
+2026-04-11 16:32:02 style: 登录 Tab 改为下划线样式，对齐图4参考风格
+2026-04-11 16:36:25 style: 登录 Tab 文字改为「账号密码登录」
+2026-04-11 16:48:20 style: 标题字体改为32px PingFang SC #1F264D，Tab改为18px，移除邮箱/密码 label
+2026-04-11 17:04:59 feat: 标题改为「登录，即刻开启简历优化」，添加服务协议勾选框
+2026-04-11 19:43:55 style: 输入框placeholder改为账号/密码，登录按钮增大上边距
+2026-04-11 19:57:49 feat: 注册页移除昵称输入框，Tab改为「账号注册」
+2026-04-11 21:34:32 feat: 注册页移除label，placeholder改为中文，添加服务协议勾选框
+2026-04-11 21:50:36 style: 浏览器标签页标题改为 Baize
+2026-04-11 22:17:07 feat: 注册页改造为邮件验证码注册，支持获取验证码倒计时
+2026-04-11 22:18:15 feat: 新增邮件验证码注册流程（SMTP发送+验证码持久化+注册校验）
+2026-04-11 23:27:44 fix: 修复登录401无限循环，新增协议勾选校验
+2026-04-11 23:37:46 feat: 首页路径改为 /overview，根路径重定向到 /overview
+2026-04-11 23:53:41 feat: 首页导航栏未登录显示注册/登录按钮，登录态显示用户信息下拉菜单
+2026-04-11 23:56:45 style: 导航栏登录态仅展示用户图标，隐藏用户名
+2026-04-12 14:46:45 style: 登录/注册错误提示移至输入框下方（提交按钮前）
+2026-04-12 15:15:42 fix: 邮件发送改用gomail.v2，配置结构改为email_server
+2026-04-12 15:20:26 fix: 补充邮件发送全链路日志（handler/service/email_service）
+2026-04-12 15:57:58 feat: 注册时提前校验邮箱是否已注册，报错显示右上角toast
+2026-04-12 18:49:22 feat: add 增购 upgrade flow — Order model, payment handler, Upgrade page, connected tier pill badge
+2026-04-12 19:31:15 style: remove 增购 connected pill from navbar tier badge
+2026-04-12 19:33:19 style: remove 产品功能/使用流程 from nav, rename 价格方案→价格, 注册→免费注册
