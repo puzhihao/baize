@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { FileText, Upload, Clock, TrendingUp, LogOut, Plus, ChevronRight, Trash2, ShieldCheck } from 'lucide-react'
+import { FileText, Upload, Clock, TrendingUp, LogOut, Plus, ChevronRight, Trash2 } from 'lucide-react'
 import { resumeApi, type Resume } from '../services/api'
 import { useAuthStore } from '../store/auth'
 import { formatDistanceToNow } from '../utils/date'
