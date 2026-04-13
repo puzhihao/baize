@@ -63,7 +63,11 @@ func Migrate() {
 
 	// Backfill existing users that have no username, then ensure unique index exists.
 	DB.Exec("UPDATE users SET username = CONCAT('user_', id) WHERE username = '' OR username IS NULL")
-	DB.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username)`)
+	if !DB.Migrator().HasIndex(&model.User{}, "idx_users_username") {
+		if err := DB.Exec("CREATE UNIQUE INDEX idx_users_username ON users(username)").Error; err != nil {
+			log.Fatalf("Create idx_users_username failed: %v", err)
+		}
+	}
 
 	log.Println("Database migration completed")
 }
