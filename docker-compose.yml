@@ -8,7 +8,6 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-baize_password}
       MYSQL_DATABASE: ${DB_NAME:-baize}
-      MYSQL_CHARSET: utf8mb4
     volumes:
       - mysql_data:/var/lib/mysql
     ports:
@@ -32,23 +31,20 @@ services:
     ports:
       - "9000:9000"
       - "9001:9001"
-    healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
 
-  backend:
+  app:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: baize-backend
+      context: .
+      dockerfile: Dockerfile.all-in-one
+      args:
+        VITE_API_URL: /api
+    container_name: baize-app
     restart: unless-stopped
     depends_on:
       mysql:
         condition: service_healthy
       minio:
-        condition: service_healthy
+        condition: service_started
     environment:
       SERVER_PORT: 8080
       DB_HOST: mysql
@@ -64,20 +60,10 @@ services:
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      DEFAULT_AI_MODEL: ${DEFAULT_AI_MODEL:-deepseek}
-    ports:
-      - "8080:8080"
-
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: baize-frontend
-    restart: unless-stopped
+      MINIMAX_API_KEY: ${MINIMAX_API_KEY:-}
+      DEFAULT_AI_MODEL: ${DEFAULT_AI_MODEL:-minimax}
     ports:
       - "80:80"
-    depends_on:
-      - backend
 
 volumes:
   mysql_data:
