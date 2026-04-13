@@ -1,9 +1,9 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { CheckCircle2, Loader2, ArrowLeft, Zap, Crown } from 'lucide-react'
-import { paymentApi, authApi } from '../services/api'
-import { useAuthStore } from '../store/auth'
+import { ArrowLeft, CheckCircle2, Crown, Loader2, Zap } from 'lucide-react'
 import { Logo } from '../components/Logo'
+import { authApi, paymentApi } from '../services/api'
+import { useAuthStore } from '../store/auth'
 
 type Plan = 'pro_monthly' | 'pro_yearly'
 type Step = 'select' | 'pay' | 'done'
@@ -11,19 +11,19 @@ type Step = 'select' | 'pay' | 'done'
 const PLANS = [
   {
     id: 'pro_monthly' as Plan,
-    label: '专业版月付',
+    label: 'Pro Monthly',
     price: 29,
-    unit: '月',
+    unit: 'month',
     badge: '',
-    perks: ['无限次简历分析', 'JD 匹配分析', '逐条优化建议', '优先 AI 模型'],
+    perks: ['Unlimited analyses', 'JD match scoring', 'Rewrite suggestions', 'Priority AI models'],
   },
   {
     id: 'pro_yearly' as Plan,
-    label: '专业版年付',
+    label: 'Pro Yearly',
     price: 199,
-    unit: '年',
-    badge: '省 ¥149',
-    perks: ['无限次简历分析', 'JD 匹配分析', '逐条优化建议', '优先 AI 模型', '专属客服支持'],
+    unit: 'year',
+    badge: 'Save more',
+    perks: ['Unlimited analyses', 'JD match scoring', 'Rewrite suggestions', 'Priority AI models', 'Priority support'],
   },
 ]
 
@@ -48,7 +48,7 @@ export default function Upgrade() {
       setOrderId(data.id)
       setStep('pay')
     } catch (e: any) {
-      showError(e.response?.data?.error || '创建订单失败，请稍后重试')
+      showError(e.response?.data?.error || 'Failed to create order')
     } finally {
       setLoading(false)
     }
@@ -59,7 +59,6 @@ export default function Upgrade() {
     setLoading(true)
     try {
       await paymentApi.confirmPayment(orderId)
-      // Refresh user info
       const { data: me } = await authApi.me()
       setUser({
         id: me.user_id,
@@ -72,89 +71,72 @@ export default function Upgrade() {
       })
       setStep('done')
     } catch (e: any) {
-      showError(e.response?.data?.error || '确认支付失败，请稍后重试')
+      showError(e.response?.data?.error || 'Failed to confirm payment')
     } finally {
       setLoading(false)
     }
   }
 
-  const plan = PLANS.find(p => p.id === selectedPlan)!
+  const plan = PLANS.find((item) => item.id === selectedPlan)!
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* Error toast */}
-      {error && (
-        <div className="fixed top-5 right-5 z-50 flex items-center gap-2.5
-                        bg-red-500 shadow-lg rounded-xl px-4 py-3
-                        animate-in fade-in slide-in-from-top-2 duration-200">
-          <span className="w-4 h-4 flex-shrink-0 text-white text-base leading-none">✕</span>
-          <span className="text-[13px] text-white font-medium">{error}</span>
+    <div className="flex min-h-screen flex-col bg-gray-50">
+      {error ? (
+        <div className="fixed right-5 top-5 z-50 flex items-center gap-2.5 rounded-xl bg-red-500 px-4 py-3 shadow-lg">
+          <span className="text-white">!</span>
+          <span className="text-[13px] font-medium text-white">{error}</span>
         </div>
-      )}
+      ) : null}
 
-      {/* Nav */}
-      <header className="bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between">
+      <header className="flex items-center justify-between border-b border-gray-100 bg-white px-6 py-4">
         <Logo variant="light" size="sm" />
-        <button
-          onClick={() => navigate(-1)}
-          className="flex items-center gap-1.5 text-[13px] text-gray-500 hover:text-gray-800 transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          返回
+        <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-[13px] text-gray-500 hover:text-gray-800">
+          <ArrowLeft className="h-4 w-4" />
+          Back
         </button>
       </header>
 
-      <main className="flex-1 flex items-center justify-center px-4 py-12">
-        {step === 'select' && (
+      <main className="flex flex-1 items-center justify-center px-4 py-12">
+        {step === 'select' ? (
           <div className="w-full max-w-2xl">
-            <div className="text-center mb-10">
-              <div className="inline-flex items-center gap-2 bg-amber-50 text-amber-700 text-[13px] font-medium px-3 py-1.5 rounded-full border border-amber-200 mb-4">
-                <Crown className="w-3.5 h-3.5" />
-                升级专业版
+            <div className="mb-10 text-center">
+              <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-[13px] font-medium text-amber-700">
+                <Crown className="h-3.5 w-3.5" />
+                Upgrade to Pro
               </div>
-              <h1 className="text-[28px] font-bold text-gray-900 tracking-tight">解锁全部功能</h1>
-              <p className="text-gray-500 text-[15px] mt-2">专业版提供无限次分析，助你轻松拿下心仪 offer</p>
+              <h1 className="text-[28px] font-bold tracking-tight text-gray-900">Unlock the full feature set</h1>
+              <p className="mt-2 text-[15px] text-gray-500">Pro gives you unlimited analyses and better matching tools.</p>
             </div>
 
-            {/* Plan cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
-              {PLANS.map(p => (
+            <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {PLANS.map((item) => (
                 <button
-                  key={p.id}
-                  onClick={() => setSelectedPlan(p.id)}
-                  className={`relative text-left rounded-2xl border-2 p-6 transition-all duration-150 outline-none
-                    ${selectedPlan === p.id
-                      ? 'border-[#006eff] bg-blue-50/40 shadow-sm'
-                      : 'border-gray-200 bg-white hover:border-gray-300'
-                    }`}
+                  key={item.id}
+                  onClick={() => setSelectedPlan(item.id)}
+                  className={`relative rounded-2xl border-2 p-6 text-left transition-all duration-150 ${
+                    selectedPlan === item.id ? 'border-[#006eff] bg-blue-50/40 shadow-sm' : 'border-gray-200 bg-white hover:border-gray-300'
+                  }`}
                 >
-                  {p.badge && (
-                    <span className="absolute top-4 right-4 text-[11px] font-semibold text-white bg-amber-500 px-2 py-0.5 rounded-full">
-                      {p.badge}
+                  {item.badge ? (
+                    <span className="absolute right-4 top-4 rounded-full bg-amber-500 px-2 py-0.5 text-[11px] font-semibold text-white">
+                      {item.badge}
                     </span>
-                  )}
+                  ) : null}
                   <div className="mb-4">
-                    <p className="text-[13px] text-gray-500 font-medium mb-1">{p.label}</p>
+                    <p className="mb-1 text-[13px] font-medium text-gray-500">{item.label}</p>
                     <div className="flex items-end gap-1">
-                      <span className="text-[32px] font-bold text-gray-900 leading-none">¥{p.price}</span>
-                      <span className="text-gray-400 text-[13px] mb-1">/ {p.unit}</span>
+                      <span className="text-[32px] font-bold leading-none text-gray-900">${item.price}</span>
+                      <span className="mb-1 text-[13px] text-gray-400">/ {item.unit}</span>
                     </div>
                   </div>
                   <ul className="space-y-2">
-                    {p.perks.map(perk => (
+                    {item.perks.map((perk) => (
                       <li key={perk} className="flex items-center gap-2 text-[13px] text-gray-600">
-                        <CheckCircle2 className={`w-3.5 h-3.5 flex-shrink-0 ${selectedPlan === p.id ? 'text-[#006eff]' : 'text-gray-400'}`} />
+                        <CheckCircle2 className={`h-3.5 w-3.5 flex-shrink-0 ${selectedPlan === item.id ? 'text-[#006eff]' : 'text-gray-400'}`} />
                         {perk}
                       </li>
                     ))}
                   </ul>
-                  {selectedPlan === p.id && (
-                    <div className="absolute bottom-4 right-4 w-5 h-5 rounded-full bg-[#006eff] flex items-center justify-center">
-                      <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 12 12">
-                        <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                    </div>
-                  )}
                 </button>
               ))}
             </div>
@@ -162,69 +144,60 @@ export default function Upgrade() {
             <button
               onClick={handleCreateOrder}
               disabled={loading}
-              className="w-full bg-[#006eff] text-white font-semibold text-[15px] py-3.5 rounded-xl
-                         hover:bg-[#2b7afb] active:scale-[0.99] transition-all duration-150
-                         disabled:opacity-40 flex items-center justify-center gap-2"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#006eff] py-3.5 text-[15px] font-semibold text-white transition-all duration-150 hover:bg-[#2b7afb] active:scale-[0.99] disabled:opacity-40"
             >
-              {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-              立即升级 — ¥{plan.price} / {plan.unit}
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              Continue with ${plan.price} / {plan.unit}
             </button>
           </div>
-        )}
+        ) : null}
 
-        {step === 'pay' && (
+        {step === 'pay' ? (
           <div className="w-full max-w-sm text-center">
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-8">
-              <div className="inline-flex items-center gap-2 text-[13px] font-medium text-gray-500 mb-6">
-                订单编号 <span className="font-mono text-gray-800">#{orderId}</span>
+            <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">
+              <div className="mb-6 inline-flex items-center gap-2 text-[13px] font-medium text-gray-500">
+                Order <span className="font-mono text-gray-800">#{orderId}</span>
               </div>
 
-              {/* Fake QR code placeholder */}
-              <div className="mx-auto w-44 h-44 bg-gray-100 rounded-xl flex flex-col items-center justify-center mb-6 border border-dashed border-gray-300">
-                <Zap className="w-8 h-8 text-gray-300 mb-2" />
-                <p className="text-[12px] text-gray-400">微信 / 支付宝扫码支付</p>
+              <div className="mx-auto mb-6 flex h-44 w-44 flex-col items-center justify-center rounded-xl border border-dashed border-gray-300 bg-gray-100">
+                <Zap className="mb-2 h-8 w-8 text-gray-300" />
+                <p className="text-[12px] text-gray-400">Mock payment QR area</p>
               </div>
 
-              <p className="text-[22px] font-bold text-gray-900 mb-1">¥{plan.price}</p>
-              <p className="text-[13px] text-gray-400 mb-8">{plan.label}</p>
+              <p className="mb-1 text-[22px] font-bold text-gray-900">${plan.price}</p>
+              <p className="mb-8 text-[13px] text-gray-400">{plan.label}</p>
 
               <button
                 onClick={handleConfirmPayment}
                 disabled={loading}
-                className="w-full bg-[#006eff] text-white font-semibold text-[14px] py-3 rounded-xl
-                           hover:bg-[#2b7afb] active:scale-[0.99] transition-all duration-150
-                           disabled:opacity-40 flex items-center justify-center gap-2"
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#006eff] py-3 text-[14px] font-semibold text-white transition-all duration-150 hover:bg-[#2b7afb] active:scale-[0.99] disabled:opacity-40"
               >
-                {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-                我已完成支付
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                I have completed payment
               </button>
 
-              <button
-                onClick={() => setStep('select')}
-                className="mt-3 w-full text-[13px] text-gray-400 hover:text-gray-600 transition-colors py-2"
-              >
-                返回修改
+              <button onClick={() => setStep('select')} className="mt-3 w-full py-2 text-[13px] text-gray-400 transition-colors hover:text-gray-600">
+                Change plan
               </button>
             </div>
           </div>
-        )}
+        ) : null}
 
-        {step === 'done' && (
+        {step === 'done' ? (
           <div className="text-center">
-            <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-6">
-              <CheckCircle2 className="w-10 h-10 text-green-500" />
+            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-green-50">
+              <CheckCircle2 className="h-10 w-10 text-green-500" />
             </div>
-            <h2 className="text-[24px] font-bold text-gray-900 mb-2">升级成功！</h2>
-            <p className="text-gray-500 text-[15px] mb-8">你已成为专业版用户，立即开始无限次简历分析吧</p>
+            <h2 className="mb-2 text-[24px] font-bold text-gray-900">Upgrade completed</h2>
+            <p className="mb-8 text-[15px] text-gray-500">Your account is now on Pro. You can return to the dashboard.</p>
             <button
               onClick={() => navigate('/dashboard')}
-              className="bg-[#006eff] text-white font-semibold text-[14px] px-8 py-3 rounded-xl
-                         hover:bg-[#2b7afb] transition-all duration-150"
+              className="rounded-xl bg-[#006eff] px-8 py-3 text-[14px] font-semibold text-white transition-all duration-150 hover:bg-[#2b7afb]"
             >
-              前往工作台
+              Go to dashboard
             </button>
           </div>
-        )}
+        ) : null}
       </main>
     </div>
   )

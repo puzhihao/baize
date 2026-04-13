@@ -1,6 +1,6 @@
-import { useState, useCallback } from 'react'
+import { useCallback, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Upload, FileText, Type, LayoutGrid, Loader2, X } from 'lucide-react'
+import { FileText, LayoutGrid, Loader2, Type, Upload, X } from 'lucide-react'
 import { resumeApi } from '../services/api'
 
 type UploadMode = 'file' | 'text' | 'form'
@@ -15,152 +15,170 @@ export default function UploadPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  const onDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    setDragOver(false)
-    const f = e.dataTransfer.files[0]
-    if (f && (f.name.endsWith('.pdf') || f.name.endsWith('.docx'))) {
-      setFile(f)
-      if (!title) setTitle(f.name.replace(/\.(pdf|docx)$/i, ''))
-    } else {
-      setError('仅支持 PDF 和 DOCX 格式')
-    }
-  }, [title])
+  const onDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault()
+      setDragOver(false)
+      const nextFile = e.dataTransfer.files[0]
+      if (nextFile && (nextFile.name.endsWith('.pdf') || nextFile.name.endsWith('.docx'))) {
+        setFile(nextFile)
+        if (!title) setTitle(nextFile.name.replace(/\.(pdf|docx)$/i, ''))
+      } else {
+        setError('Only PDF and DOCX files are supported')
+      }
+    },
+    [title],
+  )
 
   const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0]
-    if (f) {
-      setFile(f)
-      if (!title) setTitle(f.name.replace(/\.(pdf|docx)$/i, ''))
-    }
+    const nextFile = e.target.files?.[0]
+    if (!nextFile) return
+    setFile(nextFile)
+    if (!title) setTitle(nextFile.name.replace(/\.(pdf|docx)$/i, ''))
   }
 
   const handleSubmit = async () => {
     setError('')
-    if (mode === 'file' && !file) { setError('请选择文件'); return }
-    if ((mode === 'text' || mode === 'form') && !text.trim()) { setError('请输入简历内容'); return }
-    if (!title.trim()) { setError('请输入简历标题'); return }
+    if (mode === 'file' && !file) {
+      setError('Please select a file')
+      return
+    }
+    if ((mode === 'text' || mode === 'form') && !text.trim()) {
+      setError('Please enter resume content')
+      return
+    }
+    if (!title.trim()) {
+      setError('Please enter a resume title')
+      return
+    }
+
     setLoading(true)
     try {
-      let resume
-      if (mode === 'file' && file) {
-        const { data } = await resumeApi.upload(file)
-        resume = data
-      } else {
-        const { data } = await resumeApi.createFromText(title, text)
-        resume = data
-      }
+      const resume =
+        mode === 'file' && file
+          ? (await resumeApi.upload(file)).data
+          : (await resumeApi.createFromText(title, text)).data
       navigate(`/resume/${resume.id}`)
     } catch (e: any) {
-      setError(e.response?.data?.error || '上传失败，请重试')
+      setError(e.response?.data?.error || 'Upload failed, please try again')
     } finally {
       setLoading(false)
     }
   }
 
   const tabs: { id: UploadMode; label: string; icon: React.ReactNode }[] = [
-    { id: 'file', label: '上传文件', icon: <Upload className="w-4 h-4" /> },
-    { id: 'text', label: '粘贴文本', icon: <Type className="w-4 h-4" /> },
-    { id: 'form', label: '填写表单', icon: <LayoutGrid className="w-4 h-4" /> },
+    { id: 'file', label: 'Upload file', icon: <Upload className="h-4 w-4" /> },
+    { id: 'text', label: 'Paste text', icon: <Type className="h-4 w-4" /> },
+    { id: 'form', label: 'Fill form', icon: <LayoutGrid className="h-4 w-4" /> },
   ]
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
-      <div className="max-w-2xl mx-auto">
+      <div className="mx-auto max-w-2xl">
         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">上传简历</h1>
-          <p className="text-gray-500 text-sm mt-1">选择上传方式，开始 AI 分析优化</p>
+          <h1 className="text-2xl font-bold text-gray-900">Upload Resume</h1>
+          <p className="mt-1 text-sm text-gray-500">Choose a method to start the AI analysis workflow.</p>
         </div>
 
-        {/* Tabs */}
-        <div className="flex gap-2 mb-6 bg-white border border-gray-100 p-1 rounded-xl w-fit">
-          {tabs.map((t) => (
-            <button key={t.id} onClick={() => setMode(t.id)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                mode === t.id
-                  ? 'bg-primary-600 text-white shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}>
-              {t.icon}{t.label}
+        <div className="mb-6 flex w-fit gap-2 rounded-xl border border-gray-100 bg-white p-1">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setMode(tab.id)}
+              className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all ${
+                mode === tab.id ? 'bg-primary-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              {tab.icon}
+              {tab.label}
             </button>
           ))}
         </div>
 
         <div className="card p-8">
-          {/* Title input */}
           <div className="mb-6">
-            <label className="label">简历标题</label>
-            <input className="input" placeholder="例：2026届前端工程师简历" value={title} onChange={(e) => setTitle(e.target.value)} />
+            <label className="label">Resume Title</label>
+            <input
+              className="input"
+              placeholder="Example: Frontend Engineer Resume"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+            />
           </div>
 
-          {/* File upload mode */}
-          {mode === 'file' && (
+          {mode === 'file' ? (
             <div
               onDrop={onDrop}
-              onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+              onDragOver={(e) => {
+                e.preventDefault()
+                setDragOver(true)
+              }}
               onDragLeave={() => setDragOver(false)}
-              className={`border-2 border-dashed rounded-xl p-12 text-center transition-colors cursor-pointer ${
-                dragOver ? 'border-primary-400 bg-primary-50' : 'border-gray-200 hover:border-primary-300 hover:bg-gray-50'
-              }`}
               onClick={() => document.getElementById('file-input')?.click()}
+              className={`cursor-pointer rounded-xl border-2 border-dashed p-12 text-center transition-colors ${
+                dragOver
+                  ? 'border-primary-400 bg-primary-50'
+                  : 'border-gray-200 hover:border-primary-300 hover:bg-gray-50'
+              }`}
             >
               <input id="file-input" type="file" accept=".pdf,.docx" className="hidden" onChange={onFileChange} />
               {file ? (
                 <div className="flex items-center justify-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-primary-50 flex items-center justify-center">
-                    <FileText className="w-5 h-5 text-primary-600" />
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-50">
+                    <FileText className="h-5 w-5 text-primary-600" />
                   </div>
                   <div className="text-left">
                     <p className="font-medium text-gray-900">{file.name}</p>
                     <p className="text-xs text-gray-400">{(file.size / 1024).toFixed(1)} KB</p>
                   </div>
-                  <button onClick={(e) => { e.stopPropagation(); setFile(null) }}
-                    className="ml-2 text-gray-400 hover:text-gray-600">
-                    <X className="w-4 h-4" />
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setFile(null)
+                    }}
+                    className="ml-2 text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="h-4 w-4" />
                   </button>
                 </div>
               ) : (
                 <>
-                  <div className="w-14 h-14 rounded-2xl bg-primary-50 flex items-center justify-center mx-auto mb-4">
-                    <Upload className="w-7 h-7 text-primary-400" />
+                  <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-50">
+                    <Upload className="h-7 w-7 text-primary-400" />
                   </div>
-                  <p className="font-medium text-gray-700 mb-1">拖放文件到此处，或点击选择</p>
-                  <p className="text-sm text-gray-400">支持 PDF、DOCX 格式，最大 10MB</p>
+                  <p className="mb-1 font-medium text-gray-700">Drag a file here or click to choose one</p>
+                  <p className="text-sm text-gray-400">PDF or DOCX, up to 10MB</p>
                 </>
               )}
             </div>
-          )}
+          ) : null}
 
-          {/* Text mode */}
-          {mode === 'text' && (
+          {mode === 'text' ? (
             <div>
-              <label className="label">简历内容</label>
+              <label className="label">Resume Content</label>
               <textarea
                 className="input h-64 resize-none"
-                placeholder="将简历内容粘贴到此处..."
+                placeholder="Paste the full resume text here..."
                 value={text}
                 onChange={(e) => setText(e.target.value)}
               />
-              <p className="text-xs text-gray-400 mt-1">{text.length} 字符</p>
+              <p className="mt-1 text-xs text-gray-400">{text.length} characters</p>
             </div>
-          )}
+          ) : null}
 
-          {/* Form mode */}
-          {mode === 'form' && (
-            <FormMode onChange={setText} />
-          )}
+          {mode === 'form' ? <FormMode onChange={setText} /> : null}
 
-          {error && (
-            <div className="mt-4 bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg">
-              {error}
-            </div>
-          )}
+          {error ? (
+            <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
+          ) : null}
 
-          <div className="flex gap-3 mt-6">
-            <button onClick={() => navigate('/dashboard')} className="btn-secondary">取消</button>
+          <div className="mt-6 flex gap-3">
+            <button onClick={() => navigate('/dashboard')} className="btn-secondary">
+              Cancel
+            </button>
             <button onClick={handleSubmit} className="btn-primary flex-1 justify-center" disabled={loading}>
-              {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-              {loading ? '上传中...' : '上传并分析'}
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              {loading ? 'Submitting...' : 'Upload and analyze'}
             </button>
           </div>
         </div>
@@ -169,51 +187,64 @@ export default function UploadPage() {
   )
 }
 
-function FormMode({ onChange }: { onChange: (v: string) => void }) {
+function FormMode({ onChange }: { onChange: (value: string) => void }) {
   const [form, setForm] = useState({
-    name: '', phone: '', email: '', position: '',
-    education: '', experience: '', skills: '', projects: '',
+    name: '',
+    phone: '',
+    email: '',
+    position: '',
+    education: '',
+    experience: '',
+    skills: '',
+    projects: '',
   })
 
-  const update = (k: keyof typeof form, v: string) => {
-    const next = { ...form, [k]: v }
+  const update = (key: keyof typeof form, value: string) => {
+    const next = { ...form, [key]: value }
     setForm(next)
-    // Convert form to text
     const parts = [
-      next.name && `姓名：${next.name}`,
-      next.phone && `电话：${next.phone}`,
-      next.email && `邮箱：${next.email}`,
-      next.position && `求职意向：${next.position}`,
-      next.education && `\n教育经历：\n${next.education}`,
-      next.experience && `\n工作经历：\n${next.experience}`,
-      next.skills && `\n技能：\n${next.skills}`,
-      next.projects && `\n项目经历：\n${next.projects}`,
+      next.name && `Name: ${next.name}`,
+      next.phone && `Phone: ${next.phone}`,
+      next.email && `Email: ${next.email}`,
+      next.position && `Target role: ${next.position}`,
+      next.education && `\nEducation:\n${next.education}`,
+      next.experience && `\nExperience:\n${next.experience}`,
+      next.skills && `\nSkills:\n${next.skills}`,
+      next.projects && `\nProjects:\n${next.projects}`,
     ].filter(Boolean)
     onChange(parts.join('\n'))
   }
 
   const fields = [
-    { key: 'name', label: '姓名', placeholder: '张三', multiline: false },
-    { key: 'phone', label: '联系电话', placeholder: '138xxxx1234', multiline: false },
-    { key: 'email', label: '邮箱', placeholder: 'zhang@example.com', multiline: false },
-    { key: 'position', label: '求职意向', placeholder: '前端工程师 / 产品经理...', multiline: false },
-    { key: 'education', label: '教育经历', placeholder: '2022-2026 XX大学 计算机科学 本科...', multiline: true },
-    { key: 'experience', label: '工作经历', placeholder: '2024.07-至今 XX公司 前端开发工程师\n- 负责...', multiline: true },
-    { key: 'skills', label: '技能', placeholder: 'React / Vue / TypeScript / Node.js...', multiline: true },
-    { key: 'projects', label: '项目经历', placeholder: '项目名称、时间、角色、技术栈、成果...', multiline: true },
+    { key: 'name', label: 'Name', placeholder: 'Jane Doe', multiline: false },
+    { key: 'phone', label: 'Phone', placeholder: '138xxxx1234', multiline: false },
+    { key: 'email', label: 'Email', placeholder: 'jane@example.com', multiline: false },
+    { key: 'position', label: 'Target Role', placeholder: 'Frontend Engineer', multiline: false },
+    { key: 'education', label: 'Education', placeholder: '2022-2026, XX University...', multiline: true },
+    { key: 'experience', label: 'Experience', placeholder: 'Company, role, impact...', multiline: true },
+    { key: 'skills', label: 'Skills', placeholder: 'React / TypeScript / Node.js...', multiline: true },
+    { key: 'projects', label: 'Projects', placeholder: 'Project name, stack, results...', multiline: true },
   ] as const
 
   return (
     <div className="space-y-4">
-      {fields.map((f) => (
-        <div key={f.key}>
-          <label className="label">{f.label}</label>
-          {f.multiline ? (
-            <textarea className="input h-24 resize-none" placeholder={f.placeholder}
-              value={form[f.key]} onChange={(e) => update(f.key, e.target.value)} />
+      {fields.map((field) => (
+        <div key={field.key}>
+          <label className="label">{field.label}</label>
+          {field.multiline ? (
+            <textarea
+              className="input h-24 resize-none"
+              placeholder={field.placeholder}
+              value={form[field.key]}
+              onChange={(e) => update(field.key, e.target.value)}
+            />
           ) : (
-            <input className="input" placeholder={f.placeholder}
-              value={form[f.key]} onChange={(e) => update(f.key, e.target.value)} />
+            <input
+              className="input"
+              placeholder={field.placeholder}
+              value={form[field.key]}
+              onChange={(e) => update(field.key, e.target.value)}
+            />
           )}
         </div>
       ))}

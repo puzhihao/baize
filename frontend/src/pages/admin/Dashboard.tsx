@@ -1,8 +1,19 @@
 import { useEffect, useState } from 'react'
-import { Users, FileText, Zap, Star, Bot } from 'lucide-react'
+import { Bot, FileText, Star, Users, Zap } from 'lucide-react'
 import {
-  LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
-  PieChart, Pie, Cell, Legend, BarChart, Bar,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Legend,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
 } from 'recharts'
 import { adminApi, type StatsResult } from '../../services/adminApi'
 
@@ -12,21 +23,31 @@ const MODEL_COLORS: Record<string, string> = {
   openai: '#16a34a',
   claude: '#d97706',
 }
+
 const FALLBACK_COLORS = ['#6366f1', '#f43f5e', '#0ea5e9', '#f59e0b']
 
-function StatCard({ label, value, sub, icon: Icon, color }: {
-  label: string; value: number | string; sub?: string
-  icon: React.ElementType; color: string
+function StatCard({
+  label,
+  value,
+  sub,
+  icon: Icon,
+  color,
+}: {
+  label: string
+  value: number | string
+  sub?: string
+  icon: React.ElementType
+  color: string
 }) {
   return (
-    <div className="card p-5 flex items-start gap-4">
-      <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${color}`}>
-        <Icon className="w-5 h-5 text-white" />
+    <div className="card flex items-start gap-4 p-5">
+      <div className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl ${color}`}>
+        <Icon className="h-5 w-5 text-white" />
       </div>
       <div>
-        <p className="text-xs text-gray-500 mb-0.5">{label}</p>
-        <p className="text-2xl font-bold text-gray-900 leading-none">{value}</p>
-        {sub && <p className="text-xs text-gray-400 mt-1">{sub}</p>}
+        <p className="mb-0.5 text-xs text-gray-500">{label}</p>
+        <p className="text-2xl font-bold leading-none text-gray-900">{value}</p>
+        {sub ? <p className="mt-1 text-xs text-gray-400">{sub}</p> : null}
       </div>
     </div>
   )
@@ -41,123 +62,147 @@ export default function AdminDashboard() {
   }, [])
 
   if (loading) {
-    return (
-      <div className="p-8 text-sm text-gray-400 animate-pulse">加载中...</div>
-    )
+    return <div className="animate-pulse p-8 text-sm text-gray-400">Loading...</div>
   }
+
   if (!stats) return null
 
   const modelPieData = Object.entries(stats.model_usage).map(([name, value]) => ({ name, value }))
   const tierBarData = Object.entries(stats.tier_breakdown).map(([name, value]) => ({ name, value }))
-
-  // 最近 30 天各模型调用折线图数据（以 daily_trend 的日期为基准，补 0）
   const models = Object.keys(stats.model_daily_trend)
+  const totalModelCalls = Object.values(stats.model_usage).reduce((sum, count) => sum + count, 0)
+
   const modelLineData = stats.daily_trend.map(({ date }) => {
     const point: Record<string, string | number> = { date }
-    models.forEach((m) => {
-      const day = stats.model_daily_trend[m].find((d) => d.date === date)
-      point[m] = day?.count ?? 0
+    models.forEach((model) => {
+      const day = stats.model_daily_trend[model]?.find((item) => item.date === date)
+      point[model] = day?.count ?? 0
     })
     return point
   })
 
   return (
-    <div className="p-8 space-y-6">
-      <h1 className="text-xl font-semibold text-gray-900">数据大盘</h1>
+    <div className="space-y-6 p-8">
+      <h1 className="text-xl font-semibold text-gray-900">Dashboard</h1>
 
-      {/* 统计卡 */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
-        <StatCard label="总用户数" value={stats.total_users}
-          sub={`本月新增 ${stats.new_users_this_month}`}
-          icon={Users} color="bg-violet-500" />
-        <StatCard label="总简历数" value={stats.total_resumes}
-          sub={`本月新增 ${stats.new_resumes_this_month}`}
-          icon={FileText} color="bg-blue-500" />
-        <StatCard label="总分析次数" value={stats.total_analyses}
-          sub={`本月 ${stats.analyses_this_month} 次`}
-          icon={Zap} color="bg-emerald-500" />
-        <StatCard label="平均评分" value={stats.avg_score.toFixed(1)}
-          icon={Star} color="bg-amber-500" />
+      <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+        <StatCard
+          label="Total users"
+          value={stats.total_users}
+          sub={`New this month: ${stats.new_users_this_month}`}
+          icon={Users}
+          color="bg-violet-500"
+        />
+        <StatCard
+          label="Total resumes"
+          value={stats.total_resumes}
+          sub={`New this month: ${stats.new_resumes_this_month}`}
+          icon={FileText}
+          color="bg-blue-500"
+        />
+        <StatCard
+          label="Total analyses"
+          value={stats.total_analyses}
+          sub={`This month: ${stats.analyses_this_month}`}
+          icon={Zap}
+          color="bg-emerald-500"
+        />
+        <StatCard
+          label="Average score"
+          value={stats.avg_score.toFixed(1)}
+          icon={Star}
+          color="bg-amber-500"
+        />
       </div>
 
-      {/* 趋势折线图 */}
       <div className="card p-5">
-        <h2 className="text-sm font-medium text-gray-700 mb-4">最近 30 天分析趋势</h2>
+        <h2 className="mb-4 text-sm font-medium text-gray-700">Daily analyses in the last 30 days</h2>
         <ResponsiveContainer width="100%" height={220}>
           <LineChart data={stats.daily_trend} margin={{ left: -20, right: 8 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-            <XAxis dataKey="date" tick={{ fontSize: 11 }} tickFormatter={(v) => v.slice(5)} />
+            <XAxis dataKey="date" tick={{ fontSize: 11 }} tickFormatter={(value: string) => value.slice(5)} />
             <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
-            <Tooltip formatter={(v) => [v, '分析次数']} labelFormatter={(l) => `日期：${l}`} />
+            <Tooltip formatter={(value) => [value, 'Analyses']} labelFormatter={(label) => `Date: ${label}`} />
             <Line type="monotone" dataKey="count" stroke="#7c3aed" strokeWidth={2} dot={false} />
           </LineChart>
         </ResponsiveContainer>
       </div>
 
-      {/* 模型调用次数折线图 */}
       <div className="card p-5">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-medium text-gray-700">最近 30 天模型调用次数</h2>
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-sm font-medium text-gray-700">Model usage in the last 30 days</h2>
           <div className="flex items-center gap-1.5 text-xs text-gray-400">
-            <Bot className="w-3.5 h-3.5" />
-            <span>累计调用 {Object.values(stats.model_usage).reduce((a, b) => a + b, 0)} 次</span>
+            <Bot className="h-3.5 w-3.5" />
+            <span>Total calls: {totalModelCalls}</span>
           </div>
         </div>
         {models.length > 0 ? (
           <ResponsiveContainer width="100%" height={220}>
             <LineChart data={modelLineData} margin={{ left: -20, right: 8 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis dataKey="date" tick={{ fontSize: 11 }} tickFormatter={(v) => v.slice(5)} />
+              <XAxis dataKey="date" tick={{ fontSize: 11 }} tickFormatter={(value: string) => value.slice(5)} />
               <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
-              <Tooltip labelFormatter={(l) => `日期：${l}`} />
+              <Tooltip labelFormatter={(label) => `Date: ${label}`} />
               <Legend />
-              {models.map((m, i) => (
-                <Line key={m} type="monotone" dataKey={m} strokeWidth={2} dot={false}
-                  stroke={MODEL_COLORS[m] ?? FALLBACK_COLORS[i % FALLBACK_COLORS.length]} />
+              {models.map((model, index) => (
+                <Line
+                  key={model}
+                  type="monotone"
+                  dataKey={model}
+                  stroke={MODEL_COLORS[model] ?? FALLBACK_COLORS[index % FALLBACK_COLORS.length]}
+                  strokeWidth={2}
+                  dot={false}
+                />
               ))}
             </LineChart>
           </ResponsiveContainer>
         ) : (
-          <p className="text-sm text-gray-400 text-center py-10">暂无数据</p>
+          <p className="py-10 text-center text-sm text-gray-400">No data</p>
         )}
       </div>
 
-      {/* 模型占比 + Tier 分布 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div className="card p-5">
-          <h2 className="text-sm font-medium text-gray-700 mb-4">AI 模型使用占比</h2>
+          <h2 className="mb-4 text-sm font-medium text-gray-700">AI model share</h2>
           {modelPieData.length > 0 ? (
             <ResponsiveContainer width="100%" height={200}>
               <PieChart>
-                <Pie data={modelPieData} dataKey="value" nameKey="name"
-                  cx="50%" cy="50%" outerRadius={75} label={({ name, percent }) =>
-                    `${name} ${(percent * 100).toFixed(0)}%`
-                  } labelLine={false}>
-                  {modelPieData.map((entry, i) => (
-                    <Cell key={entry.name}
-                      fill={MODEL_COLORS[entry.name] ?? FALLBACK_COLORS[i % FALLBACK_COLORS.length]} />
+                <Pie
+                  data={modelPieData}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={75}
+                  label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
+                  labelLine={false}
+                >
+                  {modelPieData.map((entry, index) => (
+                    <Cell
+                      key={entry.name}
+                      fill={MODEL_COLORS[entry.name] ?? FALLBACK_COLORS[index % FALLBACK_COLORS.length]}
+                    />
                   ))}
                 </Pie>
                 <Legend />
               </PieChart>
             </ResponsiveContainer>
           ) : (
-            <p className="text-sm text-gray-400 text-center py-10">暂无数据</p>
+            <p className="py-10 text-center text-sm text-gray-400">No data</p>
           )}
         </div>
 
         <div className="card p-5">
-          <h2 className="text-sm font-medium text-gray-700 mb-4">用户套餐分布</h2>
+          <h2 className="mb-4 text-sm font-medium text-gray-700">User tiers</h2>
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={tierBarData} margin={{ left: -20, right: 8 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
               <XAxis dataKey="name" tick={{ fontSize: 12 }} />
               <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
-              <Tooltip formatter={(v) => [v, '用户数']} />
+              <Tooltip formatter={(value) => [value, 'Users']} />
               <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                {tierBarData.map((entry, i) => (
-                  <Cell key={entry.name}
-                    fill={entry.name === 'pro' ? '#7c3aed' : '#a78bfa'} />
+                {tierBarData.map((entry) => (
+                  <Cell key={entry.name} fill={entry.name === 'pro' ? '#7c3aed' : '#a78bfa'} />
                 ))}
               </Bar>
             </BarChart>

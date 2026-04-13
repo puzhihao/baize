@@ -1,21 +1,26 @@
 import { useEffect, useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import {
-  Loader2, Zap, Target, AlertCircle, Info, CheckCircle2,
-  TrendingUp, ChevronDown, ChevronUp, ArrowLeft
+  AlertCircle,
+  ArrowLeft,
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  Info,
+  Loader2,
+  Target,
+  TrendingUp,
+  Zap,
 } from 'lucide-react'
-import {
-  RadarChart, PolarGrid, PolarAngleAxis, Radar,
-  ResponsiveContainer
-} from 'recharts'
-import { resumeApi, type Resume, type Analysis } from '../services/api'
+import { PolarAngleAxis, PolarGrid, Radar, RadarChart, ResponsiveContainer } from 'recharts'
+import { resumeApi, type Analysis, type Resume } from '../services/api'
 
 const DIM_LABELS: Record<string, string> = {
-  content_completeness: '内容完整',
-  language_expression: '语言表达',
-  structure_clarity: '结构清晰',
-  keyword_density: '关键词',
-  achievement_quantification: '成就量化',
+  content_completeness: 'Content',
+  language_expression: 'Language',
+  structure_clarity: 'Structure',
+  keyword_density: 'Keywords',
+  achievement_quantification: 'Impact',
 }
 
 export default function AnalysisPage() {
@@ -32,9 +37,10 @@ export default function AnalysisPage() {
 
   useEffect(() => {
     if (!id) return
-    resumeApi.get(Number(id)).then(({ data }) => {
-      setResume(data)
-    }).finally(() => setPageLoading(false))
+    resumeApi
+      .get(Number(id))
+      .then(({ data }) => setResume(data))
+      .finally(() => setPageLoading(false))
   }, [id])
 
   const handleAnalyze = async () => {
@@ -42,126 +48,123 @@ export default function AnalysisPage() {
     setLoading(true)
     setAnalyzeError('')
     try {
-      const data = await resumeApi.analyze(resume.id, jdText || undefined, model)
-      setAnalysis(data)
+      const result = await resumeApi.analyze(resume.id, jdText || undefined, model)
+      setAnalysis(result)
     } catch (e: any) {
-      setAnalyzeError(e.response?.data?.error || '分析失败，请重试')
+      setAnalyzeError(e.response?.data?.error || 'Analysis failed, please try again')
     } finally {
       setLoading(false)
     }
   }
 
   const radarData = analysis?.detail_scores
-    ? Object.entries(analysis.detail_scores).map(([k, v]) => ({
-        subject: DIM_LABELS[k] || k,
-        value: v,
+    ? Object.entries(analysis.detail_scores).map(([key, value]) => ({
+        subject: DIM_LABELS[key] || key,
+        value,
         fullMark: 100,
       }))
     : []
 
-  const toggleSuggestion = (i: number) => {
+  const toggleSuggestion = (index: number) => {
     setExpandedSuggestions((prev) => {
       const next = new Set(prev)
-      next.has(i) ? next.delete(i) : next.add(i)
+      next.has(index) ? next.delete(index) : next.add(index)
       return next
     })
   }
 
   if (pageLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Loader2 className="w-6 h-6 animate-spin text-primary-600" />
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+        <Loader2 className="h-6 w-6 animate-spin text-primary-600" />
       </div>
     )
   }
 
-  const scoreColor = (s: number) =>
-    s >= 80 ? 'text-green-600' : s >= 60 ? 'text-yellow-600' : 'text-red-500'
+  const scoreColor = (score: number) =>
+    score >= 80 ? 'text-green-600' : score >= 60 ? 'text-yellow-600' : 'text-red-500'
 
-  const scoreRing = (s: number) =>
-    s >= 80 ? '#10b981' : s >= 60 ? '#f59e0b' : '#ef4444'
+  const scoreRing = (score: number) => (score >= 80 ? '#10b981' : score >= 60 ? '#f59e0b' : '#ef4444')
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-100 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-6 h-14 flex items-center gap-4">
+      <header className="sticky top-0 z-10 border-b border-gray-100 bg-white">
+        <div className="mx-auto flex h-14 max-w-7xl items-center gap-4 px-6">
           <Link to="/dashboard" className="text-gray-400 hover:text-gray-600">
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="h-5 w-5" />
           </Link>
           <span className="text-sm font-medium text-gray-900">{resume?.title}</span>
-          <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{resume?.file_type?.toUpperCase()}</span>
+          <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-400">
+            {resume?.file_type?.toUpperCase()}
+          </span>
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-6 py-6 flex gap-6">
-        {/* Left: Resume text */}
+      <div className="mx-auto flex max-w-7xl gap-6 px-6 py-6">
         <div className="w-2/5 flex-shrink-0">
           <div className="card h-full">
-            <div className="p-4 border-b border-gray-100 font-medium text-sm text-gray-700">简历内容</div>
-            <div className="p-4 text-xs text-gray-600 whitespace-pre-wrap leading-relaxed h-[calc(100vh-180px)] overflow-y-auto font-mono">
-              {resume?.raw_text || '无法读取简历文本'}
+            <div className="border-b border-gray-100 p-4 text-sm font-medium text-gray-700">Resume Content</div>
+            <div className="h-[calc(100vh-180px)] overflow-y-auto whitespace-pre-wrap p-4 font-mono text-xs leading-relaxed text-gray-600">
+              {resume?.raw_text || 'Resume content is unavailable.'}
             </div>
           </div>
         </div>
 
-        {/* Right: Analysis */}
         <div className="flex-1 space-y-4">
-          {/* Analyze controls */}
           <div className="card p-5">
-            <div className="flex items-center gap-3 flex-wrap">
-              <select value={model} onChange={(e) => setModel(e.target.value)}
-                className="input w-auto flex-shrink-0">
+            <div className="flex flex-wrap items-center gap-3">
+              <select value={model} onChange={(e) => setModel(e.target.value)} className="input w-auto flex-shrink-0">
                 <option value="deepseek">DeepSeek</option>
                 <option value="openai">OpenAI</option>
                 <option value="claude">Claude</option>
                 <option value="minimax">MiniMax</option>
               </select>
-              <button onClick={() => setShowJD(!showJD)} className="btn-secondary gap-1.5">
-                <Target className="w-4 h-4" />
-                {showJD ? '隐藏 JD' : '添加 JD 匹配'}
+              <button onClick={() => setShowJD((prev) => !prev)} className="btn-secondary gap-1.5">
+                <Target className="h-4 w-4" />
+                {showJD ? 'Hide JD' : 'Add JD'}
               </button>
               <button onClick={handleAnalyze} className="btn-primary" disabled={loading}>
-                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-                {loading ? '分析中...' : analysis ? '重新分析' : '开始分析'}
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
+                {loading ? 'Analyzing...' : analysis ? 'Re-run analysis' : 'Start analysis'}
               </button>
             </div>
-            {showJD && (
+            {showJD ? (
               <textarea
                 className="input mt-3 h-28 resize-none"
-                placeholder="粘贴目标职位 JD，AI 将对比简历与岗位要求..."
+                placeholder="Paste the job description here for a match analysis..."
                 value={jdText}
                 onChange={(e) => setJdText(e.target.value)}
               />
-            )}
+            ) : null}
           </div>
 
-          {analyzeError && (
-            <div className="mt-3 bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg">
+          {analyzeError ? (
+            <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
               {analyzeError}
             </div>
-          )}
+          ) : null}
 
-          {!analysis && !loading && (
+          {!analysis && !loading ? (
             <div className="card p-16 text-center">
-              <div className="w-16 h-16 rounded-2xl bg-primary-50 flex items-center justify-center mx-auto mb-4">
-                <TrendingUp className="w-8 h-8 text-primary-400" />
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary-50">
+                <TrendingUp className="h-8 w-8 text-primary-400" />
               </div>
-              <p className="text-gray-500">点击「开始分析」，AI 将对你的简历进行全面评估</p>
+              <p className="text-gray-500">Run the AI analysis to get a full review of this resume.</p>
             </div>
-          )}
+          ) : null}
 
-          {analysis && (
+          {analysis ? (
             <>
-              {/* Score card */}
               <div className="card p-6">
                 <div className="flex items-center gap-8">
-                  {/* Ring score */}
-                  <div className="flex-shrink-0 relative w-32 h-32">
-                    <svg viewBox="0 0 120 120" className="w-full h-full -rotate-90">
+                  <div className="relative h-32 w-32 flex-shrink-0">
+                    <svg viewBox="0 0 120 120" className="h-full w-full -rotate-90">
                       <circle cx="60" cy="60" r="50" fill="none" stroke="#f3f4f6" strokeWidth="12" />
                       <circle
-                        cx="60" cy="60" r="50" fill="none"
+                        cx="60"
+                        cy="60"
+                        r="50"
+                        fill="none"
                         stroke={scoreRing(analysis.total_score)}
                         strokeWidth="12"
                         strokeLinecap="round"
@@ -171,13 +174,11 @@ export default function AnalysisPage() {
                       />
                     </svg>
                     <div className="absolute inset-0 flex flex-col items-center justify-center">
-                      <span className={`text-3xl font-bold ${scoreColor(analysis.total_score)}`}>
-                        {analysis.total_score}
-                      </span>
-                      <span className="text-xs text-gray-400">综合评分</span>
+                      <span className={`text-3xl font-bold ${scoreColor(analysis.total_score)}`}>{analysis.total_score}</span>
+                      <span className="text-xs text-gray-400">Overall score</span>
                     </div>
                   </div>
-                  {/* Radar */}
+
                   <div className="flex-1">
                     <ResponsiveContainer width="100%" height={180}>
                       <RadarChart data={radarData}>
@@ -189,18 +190,17 @@ export default function AnalysisPage() {
                   </div>
                 </div>
 
-                {/* Dimension bars */}
-                <div className="grid grid-cols-2 gap-x-6 gap-y-3 mt-4">
-                  {Object.entries(analysis.detail_scores).map(([k, v]) => (
-                    <div key={k}>
-                      <div className="flex justify-between text-xs mb-1">
-                        <span className="text-gray-500">{DIM_LABELS[k] || k}</span>
-                        <span className={`font-medium ${scoreColor(v)}`}>{v}</span>
+                <div className="mt-4 grid grid-cols-2 gap-x-6 gap-y-3">
+                  {Object.entries(analysis.detail_scores).map(([key, value]) => (
+                    <div key={key}>
+                      <div className="mb-1 flex justify-between text-xs">
+                        <span className="text-gray-500">{DIM_LABELS[key] || key}</span>
+                        <span className={`font-medium ${scoreColor(value)}`}>{value}</span>
                       </div>
-                      <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                      <div className="h-1.5 overflow-hidden rounded-full bg-gray-100">
                         <div
                           className="h-full rounded-full transition-all duration-500"
-                          style={{ width: `${v}%`, background: scoreRing(v) }}
+                          style={{ width: `${value}%`, background: scoreRing(value) }}
                         />
                       </div>
                     </div>
@@ -208,101 +208,112 @@ export default function AnalysisPage() {
                 </div>
               </div>
 
-              {/* JD Match */}
-              {analysis.jd_match_score != null && analysis.jd_match_score > 0 && (
+              {analysis.jd_match_score != null && analysis.jd_match_score > 0 ? (
                 <div className="card p-5">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-                      <Target className="w-4 h-4 text-primary-600" /> JD 匹配度
+                  <div className="mb-3 flex items-center justify-between">
+                    <h3 className="flex items-center gap-2 font-semibold text-gray-900">
+                      <Target className="h-4 w-4 text-primary-600" />
+                      JD Match
                     </h3>
                     <span className={`text-2xl font-bold ${scoreColor(analysis.jd_match_score)}`}>
                       {analysis.jd_match_score}%
                     </span>
                   </div>
-                  {analysis.jd_missing_keys && analysis.jd_missing_keys.length > 0 && (
+                  {analysis.jd_missing_keys && analysis.jd_missing_keys.length > 0 ? (
                     <div>
-                      <p className="text-xs text-gray-400 mb-2">缺失关键词：</p>
+                      <p className="mb-2 text-xs text-gray-400">Missing keywords:</p>
                       <div className="flex flex-wrap gap-2">
-                        {analysis.jd_missing_keys.map((k) => (
-                          <span key={k} className="bg-orange-50 text-orange-700 border border-orange-200 text-xs px-2.5 py-1 rounded-full">
-                            {k}
+                        {analysis.jd_missing_keys.map((keyword) => (
+                          <span
+                            key={keyword}
+                            className="rounded-full border border-orange-200 bg-orange-50 px-2.5 py-1 text-xs text-orange-700"
+                          >
+                            {keyword}
                           </span>
                         ))}
                       </div>
                     </div>
-                  )}
+                  ) : null}
                 </div>
-              )}
+              ) : null}
 
-              {/* Issues */}
-              {analysis.issues && analysis.issues.length > 0 && (
+              {analysis.issues?.length ? (
                 <div className="card p-5">
-                  <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                    <AlertCircle className="w-4 h-4 text-yellow-500" /> 发现问题（{analysis.issues.length}）
+                  <h3 className="mb-3 flex items-center gap-2 font-semibold text-gray-900">
+                    <AlertCircle className="h-4 w-4 text-yellow-500" />
+                    Issues ({analysis.issues.length})
                   </h3>
                   <ul className="space-y-2">
-                    {analysis.issues.map((issue, i) => (
-                      <li key={i} className="flex items-start gap-3 text-sm">
+                    {analysis.issues.map((issue, index) => (
+                      <li key={index} className="flex items-start gap-3 text-sm">
                         <IssueIcon level={issue.level} />
                         <div>
                           <span className="font-medium text-gray-700">{issue.section}</span>
-                          <span className="text-gray-400 mx-1">·</span>
+                          <span className="mx-1 text-gray-400">/</span>
                           <span className="text-gray-600">{issue.message}</span>
                         </div>
                       </li>
                     ))}
                   </ul>
                 </div>
-              )}
+              ) : null}
 
-              {/* Suggestions */}
-              {analysis.suggestions && analysis.suggestions.length > 0 && (
+              {analysis.suggestions?.length ? (
                 <div className="card p-5">
-                  <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-green-500" /> 优化建议（{analysis.suggestions.length}）
+                  <h3 className="mb-3 flex items-center gap-2 font-semibold text-gray-900">
+                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    Suggestions ({analysis.suggestions.length})
                   </h3>
                   <ul className="space-y-2">
-                    {analysis.suggestions.map((s, i) => (
-                      <li key={i} className="border border-gray-100 rounded-xl overflow-hidden">
+                    {analysis.suggestions.map((suggestion, index) => (
+                      <li key={index} className="overflow-hidden rounded-xl border border-gray-100">
                         <button
-                          onClick={() => toggleSuggestion(i)}
-                          className="w-full flex items-center justify-between p-4 text-sm font-medium text-gray-700 hover:bg-gray-50 text-left"
+                          onClick={() => toggleSuggestion(index)}
+                          className="flex w-full items-center justify-between p-4 text-left text-sm font-medium text-gray-700 hover:bg-gray-50"
                         >
                           <span className="flex items-center gap-2">
-                            <span className="bg-primary-50 text-primary-700 text-xs px-2 py-0.5 rounded-full">{s.section}</span>
-                            <span className="text-gray-600 line-clamp-1">{s.improved.slice(0, 50)}...</span>
+                            <span className="rounded-full bg-primary-50 px-2 py-0.5 text-xs text-primary-700">
+                              {suggestion.section}
+                            </span>
+                            <span className="line-clamp-1 text-gray-600">
+                              {suggestion.improved.length > 50 ? `${suggestion.improved.slice(0, 50)}...` : suggestion.improved}
+                            </span>
                           </span>
-                          {expandedSuggestions.has(i) ? <ChevronUp className="w-4 h-4 flex-shrink-0" /> : <ChevronDown className="w-4 h-4 flex-shrink-0" />}
+                          {expandedSuggestions.has(index) ? (
+                            <ChevronUp className="h-4 w-4 flex-shrink-0" />
+                          ) : (
+                            <ChevronDown className="h-4 w-4 flex-shrink-0" />
+                          )}
                         </button>
-                        {expandedSuggestions.has(i) && (
-                          <div className="px-4 pb-4 space-y-3 border-t border-gray-50">
-                            {s.original && (
+                        {expandedSuggestions.has(index) ? (
+                          <div className="space-y-3 border-t border-gray-50 px-4 pb-4">
+                            {suggestion.original ? (
                               <div className="mt-3">
-                                <p className="text-xs text-gray-400 mb-1">原文</p>
-                                <p className="text-sm text-gray-600 bg-gray-50 rounded-lg p-3 line-through decoration-red-300">
-                                  {s.original}
+                                <p className="mb-1 text-xs text-gray-400">Original</p>
+                                <p className="rounded-lg bg-gray-50 p-3 text-sm text-gray-600 line-through decoration-red-300">
+                                  {suggestion.original}
                                 </p>
                               </div>
-                            )}
+                            ) : null}
                             <div>
-                              <p className="text-xs text-gray-400 mb-1">建议改为</p>
-                              <p className="text-sm text-gray-700 bg-green-50 rounded-lg p-3 font-medium">
-                                {s.improved}
+                              <p className="mb-1 text-xs text-gray-400">Suggested revision</p>
+                              <p className="rounded-lg bg-green-50 p-3 text-sm font-medium text-gray-700">
+                                {suggestion.improved}
                               </p>
                             </div>
                             <div>
-                              <p className="text-xs text-gray-400 mb-1">改进理由</p>
-                              <p className="text-sm text-gray-600">{s.reason}</p>
+                              <p className="mb-1 text-xs text-gray-400">Reason</p>
+                              <p className="text-sm text-gray-600">{suggestion.reason}</p>
                             </div>
                           </div>
-                        )}
+                        ) : null}
                       </li>
                     ))}
                   </ul>
                 </div>
-              )}
+              ) : null}
             </>
-          )}
+          ) : null}
         </div>
       </div>
     </div>
@@ -310,7 +321,7 @@ export default function AnalysisPage() {
 }
 
 function IssueIcon({ level }: { level: string }) {
-  if (level === 'error') return <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
-  if (level === 'warning') return <AlertCircle className="w-4 h-4 text-yellow-500 flex-shrink-0 mt-0.5" />
-  return <Info className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
+  if (level === 'error') return <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-red-500" />
+  if (level === 'warning') return <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-yellow-500" />
+  return <Info className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-400" />
 }
