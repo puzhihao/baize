@@ -70,6 +70,8 @@ services:
       DEFAULT_AI_MODEL: ${DEFAULT_AI_MODEL:-deepseek}
       ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+    volumes:
+      - ./deploy/config.yaml:/app/config.yaml
     ports:
       - "80:80"
       - "443:443"
