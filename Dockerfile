@@ -33,7 +33,7 @@ COPY --from=frontend-builder /build/frontend/dist /usr/share/nginx/html/frontend
 COPY --from=admin-builder /build/frontend-admin/dist /usr/share/nginx/html/frontend-admin
 COPY deploy/nginx/ssl/frontend /etc/nginx/ssl/frontend
 COPY deploy/nginx/ssl /etc/nginx/ssl
-COPY deploy/nginx/app.conf /etc/nginx/http.d/default.conf
+COPY deploy/nginx/default.conf /etc/nginx/http.d/default.conf
 COPY deploy/start-app.sh /app/start-app.sh
 
 RUN chmod +x /app/start-app.sh && \
