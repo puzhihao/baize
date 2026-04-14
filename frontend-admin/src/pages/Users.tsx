@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Search, Plus, X, ChevronDown } from 'lucide-react'
+import { Search, X, ChevronDown } from 'lucide-react'
 import { adminApi, type AdminUserItem } from '../services/api'
 
 interface UserFormData {
