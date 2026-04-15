@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -88,8 +89,60 @@ func (h *ResumeHandler) Get(c *gin.Context) {
 	c.JSON(http.StatusOK, resume)
 }
 
-func (h *ResumeHandler) Analyze(c *gin.Context) {
+func (h *ResumeHandler) AnalyzeStream(c *gin.Context) {
 	userID := c.GetUint("user_id")
+	var uri struct{ ID uint `uri:"id"` }
+	if err := c.ShouldBindUri(&uri); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的ID"})
+		return
+	}
+	var body struct {
+		JDText string `json:"jd_text"`
+		Model  string `json:"model"`
+	}
+	c.ShouldBindJSON(&body)
+
+	ch, err := h.svc.AnalyzeStream(c.Request.Context(), service.AnalyzeRequest{
+		ResumeID: uri.ID,
+		UserID:   userID,
+		JDText:   body.JDText,
+		Model:    body.Model,
+	})
+	if err != nil {
+		status := http.StatusInternalServerError
+		if errors.Is(err, apperrors.ErrQuotaExceeded) {
+			status = http.StatusPaymentRequired
+		}
+		c.JSON(status, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.Header("Content-Type", "text/event-stream")
+	c.Header("Cache-Control", "no-cache")
+	c.Header("Connection", "keep-alive")
+	c.Header("X-Accel-Buffering", "no")
+
+	c.Stream(func(w io.Writer) bool {
+		event, ok := <-ch
+		if !ok {
+			return false
+		}
+		switch event.Type {
+		case "token":
+			c.SSEvent("token", event.Token)
+		case "result":
+			data, _ := json.Marshal(event.Analysis)
+			c.SSEvent("result", string(data))
+			return false
+		case "error":
+			c.SSEvent("error", event.ErrMsg)
+			return false
+		}
+		return true
+	})
+}
+
+func (h *ResumeHandler) Analyze(c *gin.Context) {	userID := c.GetUint("user_id")
 	var uri struct{ ID uint `uri:"id"` }
 	if err := c.ShouldBindUri(&uri); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的ID"})
@@ -116,6 +169,59 @@ func (h *ResumeHandler) Analyze(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusCreated, analysis)
+}
+
+func (h *ResumeHandler) GenerateStream(c *gin.Context) {
+	userID := c.GetUint("user_id")
+	var body struct {
+		Name       string `json:"name" binding:"required"`
+		Phone      string `json:"phone"`
+		Email      string `json:"email"`
+		Position   string `json:"position" binding:"required"`
+		Education  string `json:"education"`
+		Experience string `json:"experience"`
+		Skills     string `json:"skills"`
+		Projects   string `json:"projects"`
+		JDText     string `json:"jd_text"`
+		Model      string `json:"model"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	ch, err := h.svc.StreamGenerate(c.Request.Context(), service.GenerateRequest{
+		UserID:     userID,
+		Name:       body.Name,
+		Phone:      body.Phone,
+		Email:      body.Email,
+		Position:   body.Position,
+		Education:  body.Education,
+		Experience: body.Experience,
+		Skills:     body.Skills,
+		Projects:   body.Projects,
+		JDText:     body.JDText,
+		Model:      body.Model,
+	})
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.Header("Content-Type", "text/event-stream")
+	c.Header("Cache-Control", "no-cache")
+	c.Header("Connection", "keep-alive")
+	c.Header("X-Accel-Buffering", "no")
+
+	c.Stream(func(w io.Writer) bool {
+		token, ok := <-ch
+		if !ok {
+			c.SSEvent("done", "")
+			return false
+		}
+		c.SSEvent("token", token)
+		return true
+	})
 }
 
 func (h *ResumeHandler) StreamSuggestions(c *gin.Context) {

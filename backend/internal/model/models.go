@@ -5,7 +5,8 @@ import (
 )
 
 type SystemPrompt struct {
-	ID        uint      `gorm:"primaryKey"` // singleton, always ID=1
+	ID        uint      `gorm:"primaryKey"`
+	Name      string    `gorm:"type:varchar(50);not null;default:'analysis'"` // "analysis" or "generate"
 	Content   string    `gorm:"type:longtext;not null"`
 	UpdatedAt time.Time `json:"updated_at"`
 }

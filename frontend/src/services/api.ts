@@ -54,8 +54,11 @@ export const authApi = {
     subscription_end?: string | null
   }>('/auth/me'),
   sendCode: (email: string) => api.post('/auth/send-code', { email }),
+  sendResetCode: (email: string) => api.post('/auth/send-reset-code', { email }),
   checkEmail: (email: string) => api.post('/auth/check-email', { email }),
   checkUsername: (username: string) => api.post('/auth/check-username', { username }),
+  resetPassword: (email: string, code: string, password: string) =>
+    api.post('/auth/reset-password', { email, code, password }),
 }
 
 // Resumes

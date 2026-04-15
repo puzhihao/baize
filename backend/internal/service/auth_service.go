@@ -77,6 +77,38 @@ func (s *AuthService) SendCode(email string) error {
 	return nil
 }
 
+func (s *AuthService) SendResetCode(email string) error {
+	log.Printf("[SendResetCode] 开始为 %s 生成重置密码验证码", email)
+
+	var user model.User
+	if err := database.DB.Where("email = ?", email).First(&user).Error; err != nil {
+		return errors.New("该邮箱未注册")
+	}
+
+	n, err := rand.Int(rand.Reader, big.NewInt(1000000))
+	if err != nil {
+		return err
+	}
+	code := fmt.Sprintf("%06d", n.Int64())
+
+	database.DB.Where("email = ?", email).Delete(&model.VerificationCode{})
+	vc := &model.VerificationCode{
+		Email:     email,
+		Code:      code,
+		ExpiresAt: time.Now().Add(5 * time.Minute),
+	}
+	if err := database.DB.Create(vc).Error; err != nil {
+		return err
+	}
+
+	if err := SendResetPasswordEmail(email, code); err != nil {
+		log.Printf("[SendResetCode] 发送邮件失败 email=%s: %v", email, err)
+		return err
+	}
+	log.Printf("[SendResetCode] 重置密码验证码发送成功 email=%s", email)
+	return nil
+}
+
 func (s *AuthService) Register(req RegisterRequest) (*model.User, error) {
 	// Validate username format: must start with a letter, only lowercase letters/digits/underscores
 	if len(req.Username) < 3 || len(req.Username) > 50 {
@@ -152,6 +184,38 @@ func (s *AuthService) Login(req LoginRequest) (*TokenPair, error) {
 		return nil, errors.New("账号已被禁用，请联系管理员")
 	}
 	return s.generateTokens(&user)
+}
+
+type ResetPasswordRequest struct {
+	Email    string `json:"email" binding:"required,email"`
+	Code     string `json:"code" binding:"required"`
+	Password string `json:"password" binding:"required,min=6"`
+}
+
+func (s *AuthService) ResetPassword(req ResetPasswordRequest) error {
+	var user model.User
+	if err := database.DB.Where("email = ?", req.Email).First(&user).Error; err != nil {
+		return errors.New("该邮箱未注册")
+	}
+
+	var vc model.VerificationCode
+	if err := database.DB.Where("email = ? AND used = ?", req.Email, false).
+		Order("created_at desc").First(&vc).Error; err != nil {
+		return errors.New("验证码不存在，请先获取验证码")
+	}
+	if time.Now().After(vc.ExpiresAt) {
+		return errors.New("验证码已过期，请重新获取")
+	}
+	if vc.Code != req.Code {
+		return errors.New("验证码不正确")
+	}
+	database.DB.Model(&vc).Update("used", true)
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	return database.DB.Model(&user).Update("password_hash", string(hash)).Error
 }
 
 func (s *AuthService) generateTokens(user *model.User) (*TokenPair, error) {

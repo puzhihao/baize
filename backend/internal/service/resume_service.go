@@ -245,7 +245,7 @@ type AnalyzeRequest struct {
 	Model    string
 }
 
-const freeMonthlyLimit = 30
+const freeMonthlyLimit = 3
 
 func (s *ResumeService) Analyze(ctx context.Context, req AnalyzeRequest) (*model.Analysis, error) {
 	log.Printf("[service.Analyze] start user_id=%d resume_id=%d model=%q with_jd=%v",
@@ -266,7 +266,7 @@ func (s *ResumeService) Analyze(ctx context.Context, req AnalyzeRequest) (*model
 			Count(&count)
 		if count >= freeMonthlyLimit {
 			log.Printf("[service.Analyze] quota exceeded user_id=%d count=%d", req.UserID, count)
-			return nil, fmt.Errorf("免费用户每月仅支持3次分析，请升级Pro: %w", apperrors.ErrQuotaExceeded)
+			return nil, fmt.Errorf("免费用户每月仅支持%d次分析，请升级Pro: %w", freeMonthlyLimit, apperrors.ErrQuotaExceeded)
 		}
 	}
 
@@ -330,8 +330,107 @@ func (s *ResumeService) Analyze(ctx context.Context, req AnalyzeRequest) (*model
 	return analysis, nil
 }
 
-func (s *ResumeService) GetAnalysis(id, userID uint) (*model.Analysis, error) {
-	var analysis model.Analysis
+type AnalyzeStreamEvent struct {
+	Type     string          // "token" | "result" | "error"
+	Token    string
+	Analysis *model.Analysis
+	ErrMsg   string
+}
+
+func (s *ResumeService) AnalyzeStream(ctx context.Context, req AnalyzeRequest) (<-chan AnalyzeStreamEvent, error) {
+	// Quota check (same as Analyze)
+	var user model.User
+	if err := database.DB.First(&user, req.UserID).Error; err != nil {
+		return nil, errors.New("用户不存在")
+	}
+	if user.Tier == model.TierFree {
+		var count int64
+		now := time.Now().UTC()
+		startOfMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
+		database.DB.Model(&model.Analysis{}).
+			Where("user_id = ? AND created_at >= ?", req.UserID, startOfMonth).
+			Count(&count)
+		if count >= freeMonthlyLimit {
+			return nil, fmt.Errorf("免费用户每月仅支持%d次分析，请升级Pro: %w", freeMonthlyLimit, apperrors.ErrQuotaExceeded)
+		}
+	}
+
+	resume, err := s.GetByID(req.ResumeID, req.UserID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Load prompt template
+	var promptTemplate string
+	var sp model.SystemPrompt
+	if err := database.DB.First(&sp, 1).Error; err == nil {
+		promptTemplate = sp.Content
+	}
+	prompt := ai.BuildAnalysisPrompt(resume.RawText, req.JDText, promptTemplate)
+
+	// Start AI stream
+	tokenCh, err := s.aiMgr.Stream(ctx, req.Model, prompt)
+	if err != nil {
+		return nil, fmt.Errorf("AI分析失败: %w", err)
+	}
+
+	out := make(chan AnalyzeStreamEvent, 128)
+
+	go func() {
+		defer close(out)
+		var buf strings.Builder
+
+		for token := range tokenCh {
+			buf.WriteString(token)
+			out <- AnalyzeStreamEvent{Type: "token", Token: token}
+		}
+
+		// Parse and save
+		result, err := ai.ParseAnalysisResult(buf.String())
+		if err != nil {
+			log.Printf("[service.AnalyzeStream] parse failed: %v\nraw: %s", err, buf.String())
+			out <- AnalyzeStreamEvent{Type: "error", ErrMsg: "AI响应解析失败，请重试"}
+			return
+		}
+
+		detailJSON, _ := json.Marshal(result.Dimensions)
+		issuesJSON, _ := json.Marshal(result.Issues)
+		suggestionsJSON, _ := json.Marshal(result.Suggestions)
+		missingJSON, _ := json.Marshal(result.JDMissingKeys)
+
+		providerName := req.Model
+		if providerName == "" {
+			providerName = config.App.DefaultAIModel
+		}
+
+		analysis := &model.Analysis{
+			ResumeID:      resume.ID,
+			UserID:        req.UserID,
+			TotalScore:    result.TotalScore,
+			DetailScores:  string(detailJSON),
+			Issues:        string(issuesJSON),
+			Suggestions:   string(suggestionsJSON),
+			JDText:        req.JDText,
+			JDMatchScore:  result.JDMatchScore,
+			JDMissingKeys: string(missingJSON),
+			ModelUsed:     providerName,
+		}
+		if err := database.DB.Create(analysis).Error; err != nil {
+			out <- AnalyzeStreamEvent{Type: "error", ErrMsg: "保存分析结果失败"}
+			return
+		}
+
+		database.DB.Model(&model.User{}).Where("id = ?", req.UserID).
+			UpdateColumn("analysis_used", gorm.Expr("analysis_used + 1"))
+
+		s.saveVersion(resume, analysis.ID)
+		out <- AnalyzeStreamEvent{Type: "result", Analysis: analysis}
+	}()
+
+	return out, nil
+}
+
+func (s *ResumeService) GetAnalysis(id, userID uint) (*model.Analysis, error) {	var analysis model.Analysis
 	if err := database.DB.Where("id = ? AND user_id = ?", id, userID).First(&analysis).Error; err != nil {
 		return nil, errors.New("分析记录不存在")
 	}
@@ -396,8 +495,57 @@ func (s *ResumeService) ListAnalysesByUser(userID uint) ([]UserAnalysisItem, err
 	return items, nil
 }
 
-func (s *ResumeService) StreamSuggestions(ctx context.Context, resumeID, userID uint, jdText, modelName string) (<-chan string, error) {
-	resume, err := s.GetByID(resumeID, userID)
+type GenerateRequest struct {
+	UserID     uint
+	Name       string
+	Phone      string
+	Email      string
+	Position   string
+	Education  string
+	Experience string
+	Skills     string
+	Projects   string
+	JDText     string
+	Model      string
+}
+
+func (s *ResumeService) StreamGenerate(ctx context.Context, req GenerateRequest) (<-chan string, error) {
+	// Build structured resume info from form fields
+	var parts []string
+	parts = append(parts, fmt.Sprintf("姓名：%s", req.Name))
+	if req.Phone != "" {
+		parts = append(parts, fmt.Sprintf("手机：%s", req.Phone))
+	}
+	if req.Email != "" {
+		parts = append(parts, fmt.Sprintf("邮箱：%s", req.Email))
+	}
+	parts = append(parts, fmt.Sprintf("求职岗位：%s", req.Position))
+	if req.Education != "" {
+		parts = append(parts, fmt.Sprintf("\n【教育背景】\n%s", req.Education))
+	}
+	if req.Experience != "" {
+		parts = append(parts, fmt.Sprintf("\n【工作经历】\n%s", req.Experience))
+	}
+	if req.Skills != "" {
+		parts = append(parts, fmt.Sprintf("\n【技能特长】\n%s", req.Skills))
+	}
+	if req.Projects != "" {
+		parts = append(parts, fmt.Sprintf("\n【项目经历】\n%s", req.Projects))
+	}
+	resumeInfo := strings.Join(parts, "\n")
+
+	// Load generation prompt from DB, fallback to default
+	var promptTemplate string
+	var sp model.SystemPrompt
+	if err := database.DB.Where("id = 2").First(&sp).Error; err == nil {
+		promptTemplate = sp.Content
+	}
+
+	prompt := ai.BuildGenerationPrompt(resumeInfo, req.JDText, promptTemplate)
+	return s.aiMgr.Stream(ctx, req.Model, prompt)
+}
+
+func (s *ResumeService) StreamSuggestions(ctx context.Context, resumeID, userID uint, jdText, modelName string) (<-chan string, error) {	resume, err := s.GetByID(resumeID, userID)
 	if err != nil {
 		return nil, err
 	}

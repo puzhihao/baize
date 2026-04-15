@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { FileText, Upload, Clock, TrendingUp, LogOut, Plus, ChevronRight, Trash2, BarChart2, Target, Award, Eye, X, AlertCircle, Info, ChevronDown, ChevronUp } from 'lucide-react'
+import { FileText, Upload, Clock, TrendingUp, LogOut, Plus, ChevronRight, Trash2, BarChart2, Target, Award, Eye, X, AlertCircle, Info, ChevronDown, ChevronUp, Wand2 } from 'lucide-react'
 import { resumeApi, type Resume, type UserAnalysisItem, type Analysis } from '../services/api'
 import { useAuthStore } from '../store/auth'
 import { formatDistanceToNow } from '../utils/date'
@@ -105,13 +105,19 @@ export default function Dashboard() {
                 <h1 className="text-2xl font-bold text-gray-900">
                   你好，{user?.username || '同学'} 👋
                 </h1>
-                <p className="text-gray-500 text-sm mt-1">上传简历，开始你的求职优化之旅</p>
+                <p className="text-gray-500 text-sm mt-1">开始你的求职优化之旅吧</p>
               </div>
               {activeTab === 'resumes' && (
-                <Link to="/upload" className="btn-primary">
-                  <Plus className="w-4 h-4" />
-                  上传简历
-                </Link>
+                <div className="flex items-center gap-2">
+                  <Link to="/generate" className="btn-secondary flex items-center gap-1.5">
+                    <Wand2 className="w-4 h-4" />
+                    AI 写简历
+                  </Link>
+                  <Link to="/upload" className="btn-primary">
+                    <Plus className="w-4 h-4" />
+                    上传简历
+                  </Link>
+                </div>
               )}
             </div>
 

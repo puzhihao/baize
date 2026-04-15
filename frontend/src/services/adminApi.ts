@@ -84,4 +84,8 @@ export const adminApi = {
     api.get<{ content: string; updated_at: string }>('/admin/prompt'),
   updatePrompt: (content: string) =>
     api.put<{ content: string; updated_at: string }>('/admin/prompt', { content }),
+  getGenerationPrompt: () =>
+    api.get<{ content: string; updated_at: string }>('/admin/prompt/generate'),
+  updateGenerationPrompt: (content: string) =>
+    api.put<{ content: string; updated_at: string }>('/admin/prompt/generate', { content }),
 }

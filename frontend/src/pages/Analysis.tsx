@@ -9,6 +9,7 @@ import {
   ResponsiveContainer
 } from 'recharts'
 import { resumeApi, type Resume, type Analysis } from '../services/api'
+import { useAuthStore } from '../store/auth'
 
 const DIM_LABELS: Record<string, string> = {
   content_completeness: '内容完整',
@@ -20,6 +21,7 @@ const DIM_LABELS: Record<string, string> = {
 
 export default function AnalysisPage() {
   const { id } = useParams()
+  const { accessToken, user } = useAuthStore()
   const [resume, setResume] = useState<Resume | null>(null)
   const [analysis, setAnalysis] = useState<Analysis | null>(null)
   const [analyzeError, setAnalyzeError] = useState('')
@@ -29,6 +31,7 @@ export default function AnalysisPage() {
   const [pageLoading, setPageLoading] = useState(true)
   const [showJD, setShowJD] = useState(false)
   const [expandedSuggestions, setExpandedSuggestions] = useState<Set<number>>(new Set())
+  const [streamingText, setStreamingText] = useState('')
 
   useEffect(() => {
     if (!id) return
@@ -41,11 +44,84 @@ export default function AnalysisPage() {
     if (!resume) return
     setLoading(true)
     setAnalyzeError('')
+    setAnalysis(null)
+    setStreamingText('')
+
+    const isPro = user?.tier === 'pro'
+
     try {
-      const data = await resumeApi.analyze(resume.id, jdText || undefined, model)
-      setAnalysis(data)
+      if (!isPro) {
+        // Free users: blocking request, show result directly
+        const result = await resumeApi.analyze(resume.id, jdText || undefined, model)
+        setAnalysis(result)
+      } else {
+        // Pro users: streaming SSE
+        const apiBase = import.meta.env.VITE_API_URL || '/api'
+        const res = await fetch(`${apiBase}/resumes/${resume.id}/analyze-stream`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({ jd_text: jdText || undefined, model }),
+        })
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ error: '分析失败' }))
+          setAnalyzeError(err.error || '分析失败，请重试')
+          return
+        }
+
+        const reader = res.body!.getReader()
+        const decoder = new TextDecoder()
+        let buffer = ''
+
+        const processEvent = (raw: string) => {
+          let evtName = ''
+          const dataParts: string[] = []
+          for (const line of raw.split('\n')) {
+            if (line.startsWith('event:')) evtName = line.slice(6).trim()
+            else if (line.startsWith('data:')) dataParts.push(line.slice(5))
+          }
+          const data = dataParts.join('\n')
+          if (!evtName || !data) return
+          if (evtName === 'token') {
+            setStreamingText(prev => prev + data)
+          } else if (evtName === 'result') {
+            try {
+              const raw = JSON.parse(data)
+              setAnalysis({
+                ...raw,
+                detail_scores: typeof raw.detail_scores === 'string' ? JSON.parse(raw.detail_scores) : raw.detail_scores,
+                issues: typeof raw.issues === 'string' ? JSON.parse(raw.issues) : raw.issues,
+                suggestions: typeof raw.suggestions === 'string' ? JSON.parse(raw.suggestions) : raw.suggestions,
+                jd_missing_keys: typeof raw.jd_missing_keys === 'string' ? JSON.parse(raw.jd_missing_keys || '[]') : (raw.jd_missing_keys ?? []),
+              })
+              setStreamingText('')
+            } catch {
+              setAnalyzeError('结果解析失败，请重试')
+            }
+          } else if (evtName === 'error') {
+            setAnalyzeError(data || '分析失败，请重试')
+          }
+        }
+
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) {
+            if (buffer.trim()) processEvent(buffer)
+            break
+          }
+          buffer += decoder.decode(value, { stream: true })
+          const parts = buffer.split('\n\n')
+          buffer = parts.pop() ?? ''
+          for (const part of parts) {
+            if (part.trim()) processEvent(part)
+          }
+        }
+      }
     } catch (e: any) {
-      setAnalyzeError(e.response?.data?.error || '分析失败，请重试')
+      setAnalyzeError(e.message || '分析失败，请重试')
     } finally {
       setLoading(false)
     }
@@ -139,6 +215,21 @@ export default function AnalysisPage() {
           {analyzeError && (
             <div className="mt-3 bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg">
               {analyzeError}
+            </div>
+          )}
+
+          {/* Streaming view — Pro users only */}
+          {loading && user?.tier === 'pro' && (
+            <div className="card overflow-hidden">
+              <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2">
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-primary-600" />
+                <span className="text-xs text-primary-600 font-medium">AI 正在分析中...</span>
+              </div>
+              <div className="p-4 h-64 overflow-y-auto">
+                <pre className="text-xs text-gray-600 whitespace-pre-wrap leading-relaxed font-mono">
+                  {streamingText || <span className="text-gray-300">等待 AI 响应...</span>}
+                </pre>
+              </div>
             </div>
           )}
 

@@ -66,19 +66,19 @@ const plans = [
     highlight: false,
   },
   {
-    name: 'Pro',
+    name: '轻享版',
     price: '¥29',
     period: '每月',
-    features: ['无限次分析', 'JD 匹配深度分析', '多模型 AI 切换', '流式实时建议输出', '优先客服支持'],
+    features: ['无限次分析', 'JD 匹配深度分析', '多模型 AI 切换', '流式实时建议输出'],
     cta: '升级 Pro',
     href: '/register',
     highlight: true,
   },
   {
-    name: 'Max',
+    name: '专业版',
     price: '¥199',
     period: '每月',
-    features: ['包含 Pro 全部权益', '人工 1v1 简历优化指导', '大厂技术专家模拟面试', '职业规划咨询', '大厂内推资源'],
+    features: ['全部权益', '技术专家 1v1 简历指导', '模拟面试', '面试技巧培训', '大厂内推'],
     cta: '联系我们',
     href: 'mailto:hi@baize.app',
     highlight: false,
@@ -423,18 +423,21 @@ export default function Landing() {
             <h2 className="text-[clamp(28px,4vw,44px)] font-bold tracking-tight text-gray-900">
               简单透明，按需选择
             </h2>
-            <p className="text-gray-400 mt-3 text-[15px]">所有方案均包含核心 AI 功能，无隐藏费用</p>
           </RevealSection>
 
           <div className="grid md:grid-cols-3 gap-5">
             {plans.map((p, i) => (
               <RevealSection key={p.name} delay={i * 80}>
-                <div className={`rounded-xl p-7 h-full flex flex-col border transition-all duration-300
+                <div className={`relative rounded-xl p-7 h-full flex flex-col border transition-all duration-300
                                  ${p.highlight
                                    ? 'bg-[#006eff] border-[#006eff] shadow-[0_8px_32px_rgba(0,110,255,0.3)] text-white'
                                    : 'bg-white border-gray-100 shadow-[0_2px_10px_rgba(0,0,0,0.04)] hover:shadow-[0_6px_24px_rgba(0,110,255,0.08)] hover:border-[#b3d5ff]'}`}>
                   {p.highlight && (
-                    <div className="text-[11px] font-bold tracking-widest text-[#b3d5ff] uppercase mb-4">推荐</div>
+                    <div className="absolute top-0 right-0">
+                      <span className="block bg-amber-500 text-white text-[11px] font-bold tracking-widest uppercase px-4 py-1.5 rounded-bl-xl rounded-tr-xl shadow-md">
+                        推荐
+                      </span>
+                    </div>
                   )}
                   <div className="mb-7">
                     <p className={`text-[13px] font-medium mb-3 ${p.highlight ? 'text-[#b3d5ff]' : 'text-gray-400'}`}>

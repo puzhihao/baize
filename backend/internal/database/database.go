@@ -8,6 +8,7 @@ import (
 
 	"github.com/baize/backend/internal/config"
 	"github.com/baize/backend/internal/model"
+	"github.com/baize/backend/pkg/ai"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -64,6 +65,13 @@ func Migrate() {
 	// Backfill existing users that have no username, then ensure unique index exists.
 	DB.Exec("UPDATE users SET username = CONCAT('user_', id) WHERE username = '' OR username IS NULL")
 	DB.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username)`)
+
+	// Seed generate prompt if not yet present (ID=2)
+	var count int64
+	DB.Model(&model.SystemPrompt{}).Where("id = 2").Count(&count)
+	if count == 0 {
+		DB.Create(&model.SystemPrompt{ID: 2, Name: "generate", Content: ai.DefaultGenerationPromptTemplate})
+	}
 
 	log.Println("Database migration completed")
 }

@@ -148,3 +148,31 @@ func (h *AuthHandler) SendCode(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "验证码已发送"})
 }
+
+func (h *AuthHandler) ResetPassword(c *gin.Context) {
+	var req service.ResetPasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := h.svc.ResetPassword(req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "密码重置成功"})
+}
+
+func (h *AuthHandler) SendResetCode(c *gin.Context) {
+	var req struct {
+		Email string `json:"email" binding:"required,email"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := h.svc.SendResetCode(req.Email); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "验证码已发送"})
+}

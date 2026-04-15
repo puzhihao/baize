@@ -267,20 +267,23 @@ export default function Auth({ mode }: { mode: 'login' | 'register' }) {
                   </button>
                 </div>
                 {/* Agreement */}
-                <label className="flex items-center gap-2 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    className="w-4 h-4 rounded accent-[#006eff]"
-                    checked={agreed}
-                    onChange={e => setAgreed(e.target.checked)}
-                  />
-                  <span className="text-[13px] text-gray-500">
-                    我已阅读并同意
-                    <a href="#" className="text-[#0066cc] hover:underline mx-0.5">服务协议</a>
-                    和
-                    <a href="#" className="text-[#0066cc] hover:underline ml-0.5">隐私政策</a>
-                  </span>
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      className="w-4 h-4 rounded accent-[#006eff]"
+                      checked={agreed}
+                      onChange={e => setAgreed(e.target.checked)}
+                    />
+                    <span className="text-[13px] text-gray-500">
+                      我已阅读并同意
+                      <a href="#" className="text-[#0066cc] hover:underline mx-0.5">服务协议</a>
+                      和
+                      <a href="#" className="text-[#0066cc] hover:underline ml-0.5">隐私政策</a>
+                    </span>
+                  </label>
+                  <Link to="/reset-password" className="text-[13px] text-[#0066cc] hover:underline whitespace-nowrap ml-3">忘记密码</Link>
+                </div>
                 <button
                   type="submit"
                   disabled={loginSubmitting}

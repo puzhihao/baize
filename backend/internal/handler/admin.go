@@ -200,6 +200,31 @@ func (h *AdminHandler) UpdatePrompt(c *gin.Context) {
 	c.JSON(http.StatusOK, result)
 }
 
+func (h *AdminHandler) GetGenerationPrompt(c *gin.Context) {
+	result, err := h.svc.GetGenerationPrompt(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, result)
+}
+
+func (h *AdminHandler) UpdateGenerationPrompt(c *gin.Context) {
+	var req struct {
+		Content string `json:"content" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	result, err := h.svc.UpdateGenerationPrompt(c.Request.Context(), req.Content)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, result)
+}
+
 func (h *AdminHandler) CreateUser(c *gin.Context) {
 	var req service.CreateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

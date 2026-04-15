@@ -47,6 +47,8 @@ func main() {
 		auth.POST("/login", authH.Login)
 		auth.POST("/refresh", authH.Refresh)
 		auth.POST("/send-code", authH.SendCode)
+		auth.POST("/send-reset-code", authH.SendResetCode)
+		auth.POST("/reset-password", authH.ResetPassword)
 		auth.POST("/check-email", authH.CheckEmail)
 		auth.POST("/check-username", authH.CheckUsername)
 		auth.GET("/me", middleware.AuthRequired(), authH.Me)
@@ -62,9 +64,11 @@ func main() {
 		resumes.GET("/analyses", resumeH.ListAnalyses)
 		resumes.GET("/analyses/:id", resumeH.GetAnalysis)
 		resumes.DELETE("/analyses/:id", resumeH.DeleteAnalysis)
+		resumes.POST("/generate-stream", resumeH.GenerateStream)
 		resumes.GET("/:id", resumeH.Get)
 		resumes.DELETE("/:id", resumeH.Delete)
 		resumes.POST("/:id/analyze", resumeH.Analyze)
+		resumes.POST("/:id/analyze-stream", resumeH.AnalyzeStream)
 		resumes.GET("/:id/stream", resumeH.StreamSuggestions)
 		resumes.GET("/:id/versions", resumeH.ListVersions)
 	}
@@ -100,6 +104,8 @@ func main() {
 		adminGroup.DELETE("/analyses/:id", adminH.DeleteAnalysis)
 		adminGroup.GET("/prompt", adminH.GetPrompt)
 		adminGroup.PUT("/prompt", adminH.UpdatePrompt)
+		adminGroup.GET("/prompt/generate", adminH.GetGenerationPrompt)
+		adminGroup.PUT("/prompt/generate", adminH.UpdateGenerationPrompt)
 	}
 
 	log.Printf("Baize backend starting on :%s", config.App.ServerPort)

@@ -603,7 +603,23 @@ func (s *AdminService) GetPrompt(_ context.Context) (*PromptRecord, error) {
 }
 
 func (s *AdminService) UpdatePrompt(_ context.Context, content string) (*PromptRecord, error) {
-	p := model.SystemPrompt{ID: 1, Content: content}
+	p := model.SystemPrompt{ID: 1, Name: "analysis", Content: content}
+	if err := database.DB.Save(&p).Error; err != nil {
+		return nil, err
+	}
+	return &PromptRecord{Content: p.Content, UpdatedAt: p.UpdatedAt}, nil
+}
+
+func (s *AdminService) GetGenerationPrompt(_ context.Context) (*PromptRecord, error) {
+	var p model.SystemPrompt
+	if err := database.DB.Where("id = 2").First(&p).Error; err != nil {
+		return &PromptRecord{Content: ai.DefaultGenerationPromptTemplate}, nil
+	}
+	return &PromptRecord{Content: p.Content, UpdatedAt: p.UpdatedAt}, nil
+}
+
+func (s *AdminService) UpdateGenerationPrompt(_ context.Context, content string) (*PromptRecord, error) {
+	p := model.SystemPrompt{ID: 2, Name: "generate", Content: content}
 	if err := database.DB.Save(&p).Error; err != nil {
 		return nil, err
 	}

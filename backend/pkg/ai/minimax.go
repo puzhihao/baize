@@ -84,6 +84,14 @@ func (p *MiniMaxProvider) chatCompletion(ctx context.Context, prompt string) (st
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		b, _ := io.ReadAll(resp.Body)
+		var apiErr struct {
+			Error struct {
+				Message string `json:"message"`
+			} `json:"error"`
+		}
+		if json.Unmarshal(b, &apiErr) == nil && apiErr.Error.Message != "" {
+			return "", fmt.Errorf("MiniMax: %s", apiErr.Error.Message)
+		}
 		return "", fmt.Errorf("MiniMax API error %d: %s", resp.StatusCode, string(b))
 	}
 	var cr chatResponse
@@ -118,6 +126,19 @@ func (p *MiniMaxProvider) streamCompletion(ctx context.Context, prompt string, c
 		return err
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		var apiErr struct {
+			Error struct {
+				Message string `json:"message"`
+			} `json:"error"`
+		}
+		if json.Unmarshal(b, &apiErr) == nil && apiErr.Error.Message != "" {
+			return fmt.Errorf("MiniMax: %s", apiErr.Error.Message)
+		}
+		return fmt.Errorf("MiniMax API error %d: %s", resp.StatusCode, string(b))
+	}
 
 	scanner := bufio.NewScanner(resp.Body)
 	for scanner.Scan() {
