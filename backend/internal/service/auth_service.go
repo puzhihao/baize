@@ -259,6 +259,21 @@ func (s *AuthService) generateTokens(user *model.User) (*TokenPair, error) {
 	}, nil
 }
 
+func (s *AuthService) ChangePassword(userID uint, oldPw, newPw string) error {
+	var user model.User
+	if err := database.DB.First(&user, userID).Error; err != nil {
+		return errors.New("用户不存在")
+	}
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(oldPw)); err != nil {
+		return errors.New("旧密码不正确")
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(newPw), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	return database.DB.Model(&user).Update("password_hash", string(hash)).Error
+}
+
 func (s *AuthService) RefreshToken(refreshToken string) (*TokenPair, error) {
 	claims, err := auth.ParseToken(refreshToken)
 	if err != nil {

@@ -28,7 +28,9 @@ type User struct {
 	Tier         Tier      `gorm:"type:enum('free','pro');default:'free'" json:"tier"`
 	IsAdmin      bool      `gorm:"default:false" json:"is_admin"`
 	IsDisabled   bool      `gorm:"default:false" json:"is_disabled"`
-	AnalysisUsed int       `gorm:"default:0" json:"analysis_used"`
+	AnalysisUsed      int        `gorm:"default:0" json:"analysis_used"`
+	MonthlyQuotaUsed  int        `gorm:"default:0" json:"monthly_quota_used"`
+	QuotaResetAt      *time.Time `gorm:"default:null" json:"quota_reset_at,omitempty"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }

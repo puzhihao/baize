@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
-interface AuthState {
+export interface AuthState {
   accessToken: string | null
   refreshToken: string | null
   user: {
@@ -11,7 +11,9 @@ interface AuthState {
     tier: string
     is_admin: boolean
     analysis_used?: number
+    monthly_quota_used?: number
     subscription_end?: string | null
+    created_at?: string
   } | null
   setTokens: (access: string, refresh: string) => void
   setUser: (user: AuthState['user']) => void

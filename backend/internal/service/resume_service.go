@@ -232,9 +232,8 @@ func (s *ResumeService) DeleteResume(ctx context.Context, id, userID uint) error
 	if resume.FilePath != "" {
 		_ = s.storage.DeleteObject(ctx, resume.FilePath)
 	}
-	// Delete related records then the resume itself
+	// Delete related version records then the resume itself
 	database.DB.Where("resume_id = ?", id).Delete(&model.ResumeVersion{})
-	database.DB.Where("resume_id = ?", id).Delete(&model.Analysis{})
 	return database.DB.Delete(resume).Error
 }
 
@@ -247,6 +246,36 @@ type AnalyzeRequest struct {
 
 const freeMonthlyLimit = 3
 
+// checkAndIncrQuota checks monthly quota for free users and increments the counter.
+// Must be called inside the same DB transaction or right before saving the analysis.
+// Returns error if quota exceeded.
+func checkQuota(user *model.User) error {
+	if user.Tier != model.TierFree {
+		return nil
+	}
+	now := time.Now().UTC()
+	startOfMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
+	// Reset monthly counter if we're in a new month
+	if user.QuotaResetAt == nil || user.QuotaResetAt.Before(startOfMonth) {
+		user.MonthlyQuotaUsed = 0
+	}
+	if user.MonthlyQuotaUsed >= int(freeMonthlyLimit) {
+		return fmt.Errorf("免费用户每月仅支持%d次分析，请升级轻享版或者专业版: %w", freeMonthlyLimit, apperrors.ErrQuotaExceeded)
+	}
+	return nil
+}
+
+// incrementQuota persists the incremented monthly quota for the user.
+func incrementQuota(userID uint) {
+	now := time.Now().UTC()
+	startOfMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
+	database.DB.Model(&model.User{}).Where("id = ?", userID).Updates(map[string]interface{}{
+		"analysis_used":      gorm.Expr("analysis_used + 1"),
+		"monthly_quota_used": gorm.Expr("CASE WHEN quota_reset_at IS NULL OR quota_reset_at < ? THEN 1 ELSE monthly_quota_used + 1 END", startOfMonth),
+		"quota_reset_at":     startOfMonth,
+	})
+}
+
 func (s *ResumeService) Analyze(ctx context.Context, req AnalyzeRequest) (*model.Analysis, error) {
 	log.Printf("[service.Analyze] start user_id=%d resume_id=%d model=%q with_jd=%v",
 		req.UserID, req.ResumeID, req.Model, req.JDText != "")
@@ -257,17 +286,9 @@ func (s *ResumeService) Analyze(ctx context.Context, req AnalyzeRequest) (*model
 		log.Printf("[service.Analyze] user not found user_id=%d err=%v", req.UserID, err)
 		return nil, errors.New("用户不存在")
 	}
-	if user.Tier == model.TierFree {
-		var count int64
-		now := time.Now().UTC()
-		startOfMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
-		database.DB.Model(&model.Analysis{}).
-			Where("user_id = ? AND created_at >= ?", req.UserID, startOfMonth).
-			Count(&count)
-		if count >= freeMonthlyLimit {
-			log.Printf("[service.Analyze] quota exceeded user_id=%d count=%d", req.UserID, count)
-			return nil, fmt.Errorf("免费用户每月仅支持%d次分析，请升级Pro: %w", freeMonthlyLimit, apperrors.ErrQuotaExceeded)
-		}
+	if err := checkQuota(&user); err != nil {
+		log.Printf("[service.Analyze] quota exceeded user_id=%d", req.UserID)
+		return nil, err
 	}
 
 	resume, err := s.GetByID(req.ResumeID, req.UserID)
@@ -286,6 +307,8 @@ func (s *ResumeService) Analyze(ctx context.Context, req AnalyzeRequest) (*model
 	if err := database.DB.First(&sp, 1).Error; err == nil {
 		promptTemplate = sp.Content
 	}
+
+	fmt.Println("promptTemplate",promptTemplate)
 
 	result, err := s.aiMgr.Analyze(aiCtx, req.Model, resume.RawText, req.JDText, promptTemplate)
 	if err != nil {
@@ -322,8 +345,7 @@ func (s *ResumeService) Analyze(ctx context.Context, req AnalyzeRequest) (*model
 		return nil, err
 	}
 
-	database.DB.Model(&model.User{}).Where("id = ?", req.UserID).
-		UpdateColumn("analysis_used", gorm.Expr("analysis_used + 1"))
+	incrementQuota(req.UserID)
 
 	s.saveVersion(resume, analysis.ID)
 	log.Printf("[service.Analyze] done elapsed=%s analysis_id=%d", time.Since(start), analysis.ID)
@@ -343,16 +365,8 @@ func (s *ResumeService) AnalyzeStream(ctx context.Context, req AnalyzeRequest) (
 	if err := database.DB.First(&user, req.UserID).Error; err != nil {
 		return nil, errors.New("用户不存在")
 	}
-	if user.Tier == model.TierFree {
-		var count int64
-		now := time.Now().UTC()
-		startOfMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
-		database.DB.Model(&model.Analysis{}).
-			Where("user_id = ? AND created_at >= ?", req.UserID, startOfMonth).
-			Count(&count)
-		if count >= freeMonthlyLimit {
-			return nil, fmt.Errorf("免费用户每月仅支持%d次分析，请升级Pro: %w", freeMonthlyLimit, apperrors.ErrQuotaExceeded)
-		}
+	if err := checkQuota(&user); err != nil {
+		return nil, err
 	}
 
 	resume, err := s.GetByID(req.ResumeID, req.UserID)
@@ -420,8 +434,7 @@ func (s *ResumeService) AnalyzeStream(ctx context.Context, req AnalyzeRequest) (
 			return
 		}
 
-		database.DB.Model(&model.User{}).Where("id = ?", req.UserID).
-			UpdateColumn("analysis_used", gorm.Expr("analysis_used + 1"))
+		incrementQuota(req.UserID)
 
 		s.saveVersion(resume, analysis.ID)
 		out <- AnalyzeStreamEvent{Type: "result", Analysis: analysis}

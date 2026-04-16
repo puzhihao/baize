@@ -35,8 +35,21 @@ export default function AnalysisPage() {
 
   useEffect(() => {
     if (!id) return
-    resumeApi.get(Number(id)).then(({ data }) => {
-      setResume(data)
+    const resumeId = Number(id)
+    Promise.all([
+      resumeApi.get(resumeId),
+      resumeApi.listAnalyses(),
+    ]).then(async ([{ data: resumeData }, { data: analysesData }]) => {
+      setResume(resumeData)
+      const existing = (analysesData.analyses || [])
+        .filter(a => a.resume_id === resumeId)
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      if (existing.length > 0) {
+        try {
+          const latest = await resumeApi.getAnalysis(existing[0].id)
+          setAnalysis(latest)
+        } catch {}
+      }
     }).finally(() => setPageLoading(false))
   }, [id])
 
@@ -44,7 +57,6 @@ export default function AnalysisPage() {
     if (!resume) return
     setLoading(true)
     setAnalyzeError('')
-    setAnalysis(null)
     setStreamingText('')
 
     const isPro = user?.tier === 'pro'
@@ -121,7 +133,12 @@ export default function AnalysisPage() {
         }
       }
     } catch (e: any) {
-      setAnalyzeError(e.message || '分析失败，请重试')
+      const msg = e.response?.data?.error || e.message || '分析失败，请重试'
+      if (e.response?.status === 402) {
+        setAnalyzeError('本月免费分析次数已用完，升级 Pro 可无限次分析')
+      } else {
+        setAnalyzeError(msg)
+      }
     } finally {
       setLoading(false)
     }
@@ -170,37 +187,34 @@ export default function AnalysisPage() {
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-6 py-6 flex gap-6">
-        {/* Left: Resume text */}
-        <div className="w-2/5 flex-shrink-0">
-          <div className="card h-full">
-            <div className="p-4 border-b border-gray-100 font-medium text-sm text-gray-700">简历内容</div>
-            <div className="p-4 text-xs text-gray-600 whitespace-pre-wrap leading-relaxed h-[calc(100vh-180px)] overflow-y-auto font-mono">
-              {resume?.raw_text || '无法读取简历文本'}
-            </div>
-          </div>
-        </div>
-
-        {/* Right: Analysis */}
-        <div className="flex-1 space-y-4">
+      <div className="max-w-4xl mx-auto px-6 py-6">
+        {/* Analysis */}
+        <div className="space-y-4">
           {/* Analyze controls */}
           <div className="card p-5">
             <div className="flex items-center gap-3 flex-wrap">
-              <select value={model} onChange={(e) => setModel(e.target.value)}
-                className="input w-auto flex-shrink-0">
-                <option value="deepseek">DeepSeek</option>
-                <option value="openai">OpenAI</option>
-                <option value="claude">Claude</option>
-                <option value="minimax">MiniMax</option>
-              </select>
-              <button onClick={() => setShowJD(!showJD)} className="btn-secondary gap-1.5">
-                <Target className="w-4 h-4" />
-                {showJD ? '隐藏 JD' : '添加 JD 匹配'}
-              </button>
               <button onClick={handleAnalyze} className="btn-primary" disabled={loading}>
                 {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
                 {loading ? '分析中...' : analysis ? '重新分析' : '开始分析'}
               </button>
+              <button onClick={() => setShowJD(!showJD)} className="btn-secondary gap-1.5">
+                <Target className="w-4 h-4" />
+                {showJD ? '隐藏 JD' : '添加 JD 匹配'}
+              </button>
+              {user?.tier === 'pro' && (
+                <select value={model} onChange={(e) => setModel(e.target.value)}
+                  className="input w-auto flex-shrink-0">
+                  <option value="deepseek">DeepSeek</option>
+                  <option value="openai">OpenAI</option>
+                  <option value="claude">Claude</option>
+                  <option value="minimax">MiniMax</option>
+                </select>
+              )}
+              {analysis && !loading && (
+                <span className="text-xs text-gray-400 ml-auto">
+                  上次分析：{new Date(analysis.created_at).toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).replace(/\//g, '-')}
+                </span>
+              )}
             </div>
             {showJD && (
               <textarea
@@ -221,15 +235,17 @@ export default function AnalysisPage() {
           {/* Streaming view — Pro users only */}
           {loading && user?.tier === 'pro' && (
             <div className="card overflow-hidden">
-              <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2">
+              <div className="px-4 py-3 flex items-center gap-2">
                 <Loader2 className="w-3.5 h-3.5 animate-spin text-primary-600" />
                 <span className="text-xs text-primary-600 font-medium">AI 正在分析中...</span>
               </div>
-              <div className="p-4 h-64 overflow-y-auto">
-                <pre className="text-xs text-gray-600 whitespace-pre-wrap leading-relaxed font-mono">
-                  {streamingText || <span className="text-gray-300">等待 AI 响应...</span>}
-                </pre>
-              </div>
+              {!analysis && (
+                <div className="px-4 pb-4 h-48 overflow-y-auto border-t border-gray-100">
+                  <pre className="text-xs text-gray-600 whitespace-pre-wrap leading-relaxed font-mono pt-3">
+                    {streamingText || <span className="text-gray-300">等待 AI 响应...</span>}
+                  </pre>
+                </div>
+              )}
             </div>
           )}
 

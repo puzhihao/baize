@@ -51,7 +51,9 @@ export const authApi = {
     tier: string
     is_admin: boolean
     analysis_used: number
+    monthly_quota_used?: number
     subscription_end?: string | null
+    created_at?: string
   }>('/auth/me'),
   sendCode: (email: string) => api.post('/auth/send-code', { email }),
   sendResetCode: (email: string) => api.post('/auth/send-reset-code', { email }),
@@ -59,6 +61,8 @@ export const authApi = {
   checkUsername: (username: string) => api.post('/auth/check-username', { username }),
   resetPassword: (email: string, code: string, password: string) =>
     api.post('/auth/reset-password', { email, code, password }),
+  changePassword: (oldPassword: string, newPassword: string) =>
+    api.put('/auth/change-password', { old_password: oldPassword, new_password: newPassword }),
 }
 
 // Resumes

@@ -52,6 +52,7 @@ func main() {
 		auth.POST("/check-email", authH.CheckEmail)
 		auth.POST("/check-username", authH.CheckUsername)
 		auth.GET("/me", middleware.AuthRequired(), authH.Me)
+		auth.PUT("/change-password", middleware.AuthRequired(), authH.ChangePassword)
 	}
 
 	// Resume routes (all protected)

@@ -97,7 +97,9 @@ export default function Auth({ mode }: { mode: 'login' | 'register' }) {
         tier: me.tier,
         is_admin: me.is_admin,
         analysis_used: me.analysis_used,
+        monthly_quota_used: me.monthly_quota_used,
         subscription_end: me.subscription_end,
+        created_at: me.created_at,
       })
       navigate('/dashboard')
     } catch (e: any) {

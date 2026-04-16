@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Upload, FileText, Type, LayoutGrid, Loader2, X } from 'lucide-react'
+import { Upload, FileText, Type, LayoutGrid, Loader2, X, CheckCircle2 } from 'lucide-react'
 import { resumeApi } from '../services/api'
 
 type UploadMode = 'file' | 'text' | 'form'
@@ -14,6 +14,7 @@ export default function UploadPage() {
   const [text, setText] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState(false)
 
   const onDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -21,6 +22,7 @@ export default function UploadPage() {
     const f = e.dataTransfer.files[0]
     if (f && (f.name.endsWith('.pdf') || f.name.endsWith('.docx'))) {
       setFile(f)
+      setError('')
       if (!title) setTitle(f.name.replace(/\.(pdf|docx)$/i, ''))
     } else {
       setError('仅支持 PDF 和 DOCX 格式')
@@ -31,6 +33,7 @@ export default function UploadPage() {
     const f = e.target.files?.[0]
     if (f) {
       setFile(f)
+      setError('')
       if (!title) setTitle(f.name.replace(/\.(pdf|docx)$/i, ''))
     }
   }
@@ -50,7 +53,8 @@ export default function UploadPage() {
         const { data } = await resumeApi.createFromText(title, text)
         resume = data
       }
-      navigate(`/resume/${resume.id}`)
+      setSuccess(true)
+      setTimeout(() => navigate(`/resume/${resume.id}`), 1200)
     } catch (e: any) {
       setError(e.response?.data?.error || '上传失败，请重试')
     } finally {
@@ -66,6 +70,14 @@ export default function UploadPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
+      {success && (
+        <div className="fixed top-5 right-5 z-50 flex items-center gap-2.5
+                        bg-green-500 shadow-lg rounded-xl px-4 py-3
+                        animate-in fade-in slide-in-from-top-2 duration-200">
+          <CheckCircle2 className="w-4 h-4 text-white flex-shrink-0" />
+          <span className="text-[13px] text-white font-medium">上传成功，正在跳转...</span>
+        </div>
+      )}
       <div className="max-w-2xl mx-auto">
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-gray-900">上传简历</h1>
